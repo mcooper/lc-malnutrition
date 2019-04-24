@@ -29,20 +29,22 @@ badcoords <- sp[is.na(sp@data$DESCRIPTIO), ]
 n <- 1:nrow(badcoords)
 total <- nrow(badcoords)
 
+ix <- NULL
 for (i in n){
-  badcoords@data[i, 'ID'] <- fao$ID[which.min(gDistance(badcoords[i, ], fao, byid=T))]
+  ix <- c(ix, which.min(gDistance(badcoords[i, ], fao, byid=T)))
   print(which(n==i)/total)
 }
 
-badcoords@data[ , c("DESCRIPTIO", "THEID", "SYSTEM", "ORIG")] <- NULL
-
-badcoords_df <- merge(badcoords@data, fao@data, all.x=T, all.y=F)
+badcoords_df <- cbind(badcoords@data[ , c('latitude', 'longitude', 'code')], fao@data[ix, ])
 
 all <- bind_rows(goodcoords@data, badcoords_df) %>%
-  dplyr::select(code, continent=ORIG, farm_system=DESCRIPTIO, farm_system_id=ID)
+  dplyr::select(latitude, longitude, code, continent=ORIG, farm_system=DESCRIPTIO, farm_system_id=ID)
+
+fs <- read.csv('fs_unique.csv')
+
+all <- merge(all, fs)
 
 write.csv(all, '../../DHS Processed/FarmingSystems.csv', row.names = F)
-
 
 fao <- readOGR('.', 'all_farming_systems', p4s = "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 fao@data$ID <- seq(1, nrow(fao@data))

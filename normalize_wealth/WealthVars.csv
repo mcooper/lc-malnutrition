@@ -2,7 +2,7 @@ variable,pr,kr
 hhid,hhid,hhid
 householdno,hv002,v002
 wealth_factor,hv271,v191
-cluserid,hv001,v001
+clusterid,hv001,v001
 country,hv000,v000
 wall_materials,hv214,v128
 floor_materials,hv213,v127

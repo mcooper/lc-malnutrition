@@ -20,15 +20,19 @@ def merge_dicts(*dicts):
     return(superdict)
 
 cciaccum = pd.DataFrame()
-for y in out.interview_year.unique():    
-    if (y < 1992) | (y > 2015):
-        continue
+for year in out.interview_year.unique():    
+    if year < 1992:
+        y = 1992
+    elif year > 2015:
+        y = 2015
+    else:
+        y = year
     
-    print(y)
+    print(year)
     
     cci = ee.Image("users/geflanddegradation/lcov/ESACCI-LC-L4-LCCS-Map-300m-P1Y-" + str(y) + "-v207")
     
-    sel = out.loc[out['interview_year'] == y]
+    sel = out.loc[out['interview_year'] == year]
     
     points = []
     for row in sel.iterrows():
@@ -51,7 +55,7 @@ for y in out.interview_year.unique():
         for i in f['features']:
             temp = pd.DataFrame(merge_dicts(rename_dict('cci_', i['properties']['histogram']),
                                             {'code': i['properties']['code']},
-                                            {'interview_year': y}), index = [0])
+                                            {'interview_year': year}), index = [0])
             cciaccum = cciaccum.append(temp)
 
 cciaccum = cciaccum.fillna(0)

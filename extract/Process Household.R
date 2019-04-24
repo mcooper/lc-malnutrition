@@ -17,7 +17,7 @@
 #'Also, first filter out households that are visitors or were nto present for the duration of the child's life
 ###################################################################################
 
-setwd('G://My Drive/DHS Processed/')
+setwd('~/dhsprocessed/')
 
 library(dplyr)
 
@@ -26,30 +26,26 @@ hh <- read.csv('hhvars.csv') %>%
          whz_dhs = whz_dhs/100) %>%
   filter((years_in_location >= 3 | is.na(years_in_location)) & (is_visitor == 0 | is.na(is_visitor)))
 
-wealth <- read.csv('hh_wealth_harmonized.csv')
-
-hh <- merge(hh, wealth, all.x=T, all.y=F)
-
 data1 <- hh %>%
   select(code, interview_year, interview_month, calc_birthmonth, haz_dhs, whz_dhs, age, birth_order, hhsize, sex, mother_years_ed, toilet, 
-         head_age, head_sex, urban_rural, wealth_norm, surveycode, country) %>%
+         head_age, head_sex, urban_rural, wealth_index, surveycode, country) %>%
   na.omit
 
 data2 <- hh  %>%
   select(code, interview_year, interview_month, calc_birthmonth, haz_dhs, whz_dhs, age, birth_order, hhsize, sex, mother_years_ed, toilet, 
-         head_age, head_sex, urban_rural, wealth_norm, otherwatersource, ever_breastfed, diarrhea, 
+         head_age, head_sex, urban_rural, wealth_index, otherwatersource, ever_breastfed, diarrhea, 
          istwin, surveycode, country) %>%
   na.omit
 
 data2000 <- hh %>%
   select(code, interview_year, interview_month, calc_birthmonth, haz_dhs, whz_dhs, age, birth_order, hhsize, sex, mother_years_ed, toilet, 
-         head_age, head_sex, urban_rural, wealth_norm, relationship_hhhead, workers, dependents,
+         head_age, head_sex, urban_rural, wealth_index, relationship_hhhead, workers, dependents,
          drinkwatersource, surveycode, country) %>%
   na.omit
 
-write.csv(data1, 'HH_data_A_norm.csv', row.names=F)
-write.csv(data2, 'HH_data_B_norm.csv', row.names=F)
-write.csv(data2000, 'HH_data_2000_norm.csv', row.names=F)
+write.csv(data1, 'HH_data_A.csv', row.names=F)
+write.csv(data2, 'HH_data_B.csv', row.names=F)
+write.csv(data2000, 'HH_data_2000.csv', row.names=F)
 
 ###################################################
 # Quick test of whether data1 is better than data2
@@ -60,7 +56,7 @@ library(lme4)
 #Compare RMSE, use different datasets
 
 mod1 <- lmer(haz_dhs~interview_year + age + birth_order + hhsize + sex + mother_years_ed + toilet + 
-             head_age + head_sex + urban_rural + wealth_index + (1|surveycode) + (1|country), data=data1)
+               head_age + head_sex + urban_rural + wealth_index + (1|surveycode) + (1|country), data=data1)
 
 sqrt(mean(residuals(mod1)^2))
 #[1] 148.7976

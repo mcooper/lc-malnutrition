@@ -10,7 +10,8 @@ spei <- read.csv('PrecipIndices.csv')
 cov <- read.csv('SpatialCovars.csv')
 gl <- read.csv('globeland30_processed.csv')
 
-all <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hh, lc, spei, cov, gl))
+all <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hh, lc, spei, cov, gl)) %>%
+  filter(longitude > -20 & longitude < 60 & latitude < 22)
 
 #Get Residuals
 mod <- lmer(haz_dhs ~ interview_year + age + birth_order + hhsize + sex + mother_years_ed + toilet +
@@ -18,19 +19,9 @@ mod <- lmer(haz_dhs ~ interview_year + age + birth_order + hhsize + sex + mother
 
 all$residuals <- residuals(mod)
 
+mod.urban <- loess(residuals ~ spei24, data = all %>% filter(natural <= median(plt$natural)), span = 1)
 
-grp <- all %>% group_by(code) %>%
-  summarize(residuals=median(residuals))
-
-plt <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(grp, lc, spei, cov)) %>%
-  filter(market_dist > 150)
-
-# plt <- all %>%
-#   filter(market_dist > 150)
-
-mod.urban <- loess(residuals ~ spei24, data = plt %>% filter(natural <= median(plt$natural)), span = 1)
-
-mod.rural <- loess(residuals ~ spei24, data = plt %>% filter(natural > median(plt$natural)), span = 1)
+mod.rural <- loess(residuals ~ spei24, data = all %>% filter(natural > median(plt$natural)), span = 1)
 
 mod <- c('> Median Natural Land Cover', '<= Median Natural Land Cover')
 spei24 <- seq(-3, 3, len=100)
