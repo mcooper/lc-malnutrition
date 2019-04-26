@@ -28,12 +28,13 @@ grid_gdp <- read.csv('grid_gdp.csv')
 grid_hdi <- read.csv('grid_hdi.csv')
 enrollment <- read.csv('enrollment.csv')
 assistance <- read.csv('Assistance.csv')
+aez <- read.csv('AEZ.csv')
 
 alldf <- Reduce(function(x,y){merge(x, y, all.x=T, all.y=F)}, 
                 list(sp, ag, avhrr, irrig, market, gdp, crop_prod, wgi,
                      pop, fields, nut, built, elev, rough, settle, 
                      imports, grid_gdp, grid_hdi, enrollment,
-                     assistance, bodycount))
+                     assistance, bodycount, aez))
 
 #Simplify to get one metric per code
 alldf <- alldf %>%

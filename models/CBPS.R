@@ -9,8 +9,9 @@ hha <- read.csv('HH_data_A_norm.csv')
 spei <- read.csv('PrecipIndices.csv')
 cov <- read.csv('SpatialCovars.csv')
 lc <- read.csv('landcover_processed.csv')
+fs <- read.csv('FarmingSystems.csv')
 
-all <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hha, spei, cov, lc)) %>%
+all <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hha, spei, cov, lc, fs)) %>%
   na.omit
 
 mod1 <- lmer(haz_dhs ~ age + birth_order + hhsize + sex + mother_years_ed + toilet +
@@ -52,15 +53,15 @@ all$residuals_fe <- residuals(mod2)
 # 
 # all$treat <- best.bc
 
-sel$treat <- sel$natural
+all$treat <- all$natural
 
 #ALSO CONTROL FOR MEAN ANNUAL PRECIPITATION!!!!
 # Define the treatment model and the covariates associated with it
 nfe.pscore.form <- (treat ~ I(log(population+1)) + I(log(market_dist + 1)) + I(log(grid_gdp)) + 
-                      I(log(mean_annual_precip)) + spei24)
+                      I(log(mean_annual_precip)) + spei24 + farm_system_new)
 covars <- model.matrix(~ -1 + I(log(population+1)) + I(log(market_dist + 1)) + I(log(grid_gdp)) + 
-                         I(log(mean_annual_precip)) + spei24,
-                       data = sel)
+                         I(log(mean_annual_precip)) + spei24 + farm_system_new,
+                       data = all)
 
 # Fit CBPS and npCBPS
 #pscorefit.nfe.exact <- CBPS(nfe.pscore.form, data = sel, twostep = FALSE, method = "exact")

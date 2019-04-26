@@ -2,97 +2,64 @@ library(raster)
 library(rgdal)
 library(dplyr)
 
-setwd('G://My Drive/DHS Spatial Covars/AVHRR')
+setwd('G://My Drive/DHS Spatial Covars/AEZ')
 
 data <- read.csv('G://My Drive/DHS Processed/sp_export.csv') %>%
-  dplyr::select(latitude, longitude, code, interview_year) %>%
-  arrange(interview_year) %>%
+  dplyr::select(latitude, longitude, code) %>%
   unique
 
-extractYear <- function(sp, y){
-  ndvi <- raster(paste0(y, '_vi_mn_75_100.tif'))/10000
+AEZ <- raster('G://My Drive/DHS Spatial Covars/AEZ/AEZ.tif')
+
+sp <- SpatialPoints(data[ , c('longitude', 'latitude')])
+
+data$AEZ <- extract(AEZ, sp)
+
+for (i in which(is.na(data$AEZ))){
+  sel <- data %>% 
+    filter(substr(code, 1, 2)==substr(data$code[i], 1, 2)) %>%
+    na.omit
   
-  vcf <- stack(paste0('VCF_', y, '.tif'))
+  dists <- apply(sel[ , c('longitude', 'latitude')], 1, FUN = pointDistance, p2=data[i, c('longitude', 'latitude')], lonlat=TRUE)
   
-  #1st layer - Forest
-  #2nd layer - Other Vegetation (1 - (Forest + Bare))
-  #3rd layer - Bare
+  data$AEZ[i] <- sel$AEZ[which(dists==min(dists))]
   
-  forest <- vcf[[1]]
-  bare <- vcf[[3]]
-  
-  print('focal')
-  ndvi <- focal(ndvi, matrix(rep(1, 9), ncol=3), fun=mean, pad=TRUE, na.rm=T, padValue=NA)
-  forest <- focal(forest, matrix(rep(1, 9), ncol=3), fun=mean, pad=TRUE, na.rm=T, padValue=NA)
-  bare <- focal(bare, matrix(rep(1, 9), ncol=3), fun=mean, pad=TRUE, na.rm=T, padValue=NA)
-  
-  print('extract')
-  sp@data$ndvi <- extract(ndvi, sp)
-  sp@data$forest <- extract(forest, sp)
-  sp@data$bare <- extract(bare, sp)
-  
-  #One friggin NA in Nigeria?
-  while (sum(is.na(sp@data$ndvi)) > 0){
-    print('dealing with NAs in Nigeria')
-    ndvi <- focal(ndvi, matrix(rep(1, 9), ncol=3), fun=mean, pad=TRUE, na.rm=T, padValue=NA)
-    sp@data$ndvi[is.na(sp@data$ndvi)] <- extract(ndvi, sp[is.na(sp@data$ndvi), ])
-  }
-  
-  return(sp@data)
+  print(i)
 }
 
-newdata <- data.frame()
-for (y in unique(data$interview_year)){
-  print(y)
-  
-  sel <- data[data$interview_year == y, ]
-  sp <- SpatialPointsDataFrame(coords = sel[ , c('longitude', 'latitude')], data=sel)
-  
-  if (y == 1994 | y == 2000){
-    res1 <- extractYear(sp, y - 1)
-    res2 <- extractYear(sp, y + 1)
-    
-    res <- bind_rows(res1, res2) %>%
-      group_by(latitude, longitude, code) %>%
-      summarize(ndvi=mean(ndvi),
-                forest=mean(forest),
-                bare=mean(bare)) %>%
-      mutate(interview_year = y)
-  } else{
-    res <- extractYear(sp, y)
-  }
-  
-  newdata <- bind_rows(newdata, res)
-}
+class <- read.csv('AEZ_class.csv')
 
-write.csv(newdata, '../../DHS Processed/avhrr.csv', row.names=F)
+data <- merge(data, class, all.x=T, all.y=F)
 
-#Read in 2016 rasters and write them
-for (year in seq(1990, 2020)){
-  y <- year
-  
-  if (year > 2016){
-    y <- 2016
-  }
-  
-  if (year == 1994){
-    y <- 1995
-  }
-  
-  if (year == 2000){
-    y <- 2001
-  }
-  
-  ndvi <- raster(paste0(y, '_vi_mn_75_100.tif'))/10000
-  vcf <- stack(paste0('VCF_', y, '.tif'))
-  forest <- vcf[[1]]
-  bare <- vcf[[3]]
-  
-  ndvi <- focal(ndvi, matrix(rep(1, 9), ncol=3), fun=mean, pad=TRUE, na.rm=T, padValue=NA)
-  forest <- focal(forest, matrix(rep(1, 9), ncol=3), fun=mean, pad=TRUE, na.rm=T, padValue=NA)
-  bare <- focal(bare, matrix(rep(1, 9), ncol=3), fun=mean, pad=TRUE, na.rm=T, padValue=NA)
-  
-  writeRaster(ndvi, paste0('../Final Rasters/', year, '/ndvi.tif'), format='GTiff', overwrite=TRUE)
-  writeRaster(bare, paste0('../Final Rasters/', year, '/bare.tif'), format='GTiff', overwrite=TRUE)
-  writeRaster(forest, paste0('../Final Rasters/', year, '/forest.tif'), format='GTiff', overwrite=TRUE)
-}
+se.asia <- data$latitude < 33 & data$longitude > 78 
+eurasia <- substr(data$code, 1, 2) %in% c("MB", "AL", "AM", "TJ", "KY") 
+me.na <- substr(data$code, 1, 2) %in% c("MA", "EG", "JO") 
+lac.low <- data$longitude < -35 & !data$AEZ %in% c(322, 323, 324)  
+lac.high <- data$longitude < -35 & data$AEZ %in% c(322, 323, 324) 
+nafr.arid <- data$AEZ %in% c(211, 221, 311, 321) & substr(data$code, 1, 2) %in% c("SN", "ML", "NI", "NG", "BF", "CM", "TD") 
+eafr.arid <- data$AEZ %in% c(211, 221, 311, 321) & data$longitude > 26 & data$latitude > -5 & data$longitude < 55 & data$latitude < 17
+safr.arid <- data$AEZ %in% c(211, 221, 311, 321) & data$latitude < -5 & data$longitude > -25 & data$longitude < 55
+afr.forest <- data$AEZ == 314 & data$latitude < 17 & data$longitude > -25 & data$longitude < 55
+nafr.sav <- data$AEZ == 312 & data$latitude > 3.5 & data$longitude > -25 & data$longitude < 55
+seafr.sav <- data$AEZ == 312 & data$latitude < 3.5 & data$longitude > -25 & data$longitude < 55
+afr.high <- data$AEZ %in% c(322, 323, 324, 222, 223, 224) & data$latitude < 17 & data$longitude > -25 & data$longitude < 55
+afr.subforest <- data$AEZ == 313 & data$latitude < 17 & data$longitude > -25 & data$longitude < 55
+
+cl <- se.asia + eurasia + me.na + lac.low + lac.high + nafr.arid + eafr.arid + safr.arid + 
+        afr.forest + nafr.sav + seafr.sav + afr.high + afr.subforest
+
+data$AEZ_new[se.asia] <- "Southeast Asia"
+data$AEZ_new[eurasia] <- "Eurasia"
+data$AEZ_new[me.na] <- "Mideast NAfrica"
+data$AEZ_new[lac.low] <- 'LAC Lowlands'
+data$AEZ_new[lac.high] <- 'LAC Highlands'
+data$AEZ_new[nafr.arid] <- 'Arid NAfrica'
+data$AEZ_new[eafr.arid] <- 'Arid NAfrica'
+data$AEZ_new[safr.arid] <- 'Arid SAfrica'
+data$AEZ_new[afr.forest] <- 'Forest Africa'
+data$AEZ_new[nafr.sav] <- 'Savanna NAfrica'
+data$AEZ_new[seafr.sav] <- 'Savanna SEAfrica'
+data$AEZ_new[afr.high] <- 'Highlands Africa'
+data$AEZ_new[afr.subforest] <- 'SemiForest Africa'
+
+write.csv(data, 'G://My Drive/DHS Processed/AEZ.csv', row.names=F)
+
