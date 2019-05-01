@@ -1,19 +1,13 @@
 library(dplyr)
-library(lme4)
-library(MASS)
-library(broom)
-library(stargazer)
+library(mgcv)
 
 setwd('G://My Drive/DHS Processed')
 
-hha <- read.csv('HH_data_A.csv')
+hha <- read.csv('HH_data_A_norm.csv')
 spei <- read.csv('PrecipIndices.csv')
-cov <- read.csv('SpatialCovars.csv')
 spei_age <- read.csv('PrecipIndices_Individual.csv')
 
-all <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hha, spei, cov, spei_age)) %>%
-  filter(builtup < 20 & bare < 95) %>%
-  na.omit
+all <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hha, spei, spei_age))
 
 for (i in c("spei12", "spei24", "spei36", "spei12gs", "spei24gs", "spei36gs", 
             "spei_ageutero", "spei_gs_ageutero")){
@@ -24,61 +18,84 @@ for (i in c("spei12", "spei24", "spei36", "spei12gs", "spei24gs", "spei36gs",
             "spei_ageutero", "spei_gs_ageutero")){
   all$spei <- all[ , i]
   
-  all$speisq <- all[ , i]^2
-  
   print(i)
   
-  assign(i, lmer(haz_dhs ~ age + birth_order + sex + as.factor(calc_birthmonth) + 
+  assign(paste0(i, '_haz'), gamm(haz_dhs ~ age + birth_order + sex + as.factor(calc_birthmonth) + 
                    mother_years_ed + toilet + hhsize + 
-         head_age + head_sex + wealth_index + (1|country) + (1|surveycode) + (1|interview_year) + 
-         spei + speisq, data=all))
+         head_age + head_sex + wealth_norm + interview_year + 
+         s(spei), random=list(country=~1, surveycode=~1), data=all))
+  
+  assign(paste0(i, '_whz'), gamm(whz_dhs ~ age + birth_order + sex + as.factor(calc_birthmonth) + 
+                                   mother_years_ed + toilet + hhsize + 
+                                   head_age + head_sex + wealth_norm + interview_year + 
+                                   s(spei), random=list(country=~1, surveycode=~1), data=all))
 }
 
-stg1 <- stargazer(spei12, spei12gs, spei24, spei24gs, title="Modeling Child Nutrition With SPEI Calculated at Various Timeframes (Part 1)",
-                 #out = 'G://My Drive/Papers/SPEI-Malnutrition/SPEI-MalnutritionTex/tables/S2.tex',
-                 column.labels=c("12-Month", "12-Month Growing Season",
-                                 "24-Month", "24-Month Growing Season"),
-                 dep.var.labels.include=FALSE,
-                 dep.var.caption='',
-                 covariate.labels=c('Age', "Birth Order", "Child is Male", "Birthmonth - February", "Birthmonth - March",
-                                    "Birthmonth - April", "Birthmonth - May", "Birthmonth - June", "Birthmonth - July", "Birthmonth - August", "Birthmonth - September",
-                                    "Birthmonth - October", "Birthmonth - November", "Birthmonth - December", 
-                                    "Mother's Years of Education",
-                                    "Toilet - No Facility", "Toilet - Other", "Toilet - Pit Latrine", "Household Size", 
-                                    "Household Head Age", "Household Head is Male", 
-                                    "Wealth Index - Poorer", "Wealth Index - Poorest", "Wealth Index - Richer", "Wealth Index - Richest",
-                                    "SPEI", "SPEI Squared", 
-                                    "Intercept"))
+##Evaluate by AIC
+###############
+AIC(spei12_haz)
+AIC(spei24_haz)
+AIC(spei36_haz)
+AIC(spei12gs_haz)
+AIC(spei24gs_haz)
+AIC(spei36gs_haz)
+AIC(spei_ageutero_haz)
+AIC(spei_gs_ageutero_haz)
+#lowest is spei24
 
-#Need to make manual edits to table based on this:
-#https://tex.stackexchange.com/questions/424435/help-with-long-table-from-stargazer
+AIC(spei12_whz)
+AIC(spei24_whz)
+AIC(spei36_whz)
+AIC(spei12gs_whz)
+AIC(spei24gs_whz)
+AIC(spei36gs_whz)
+AIC(spei_ageutero_whz)
+AIC(spei_gs_ageutero_whz)
+#lowest is spei36?
+ 
+#Evaluate by R-squared
+###################
+cor(residuals(spei12_haz), all$haz_dhs)
+cor(residuals(spei24_haz), all$haz_dhs)
+cor(residuals(spei36_haz), all$haz_dhs)
+cor(residuals(spei12gs_haz), all$haz_dhs)
+cor(residuals(spei24gs_haz), all$haz_dhs)
+cor(residuals(spei36gs_haz), all$haz_dhs)
+cor(residuals(spei_ageutero_haz), all$haz_dhs)
+cor(residuals(spei_gs_ageutero_haz), all$haz_dhs)
+#highest is spei12gs
 
-stg1 <- stg1[c(1, 2, 3, 7, 5, 6, seq(8, (length(stg1) - 1)))]
-stg1 <- gsub('tabular', 'longtable', stg1)
-stg1 <- paste0(stg1, collapse='\n')
-cat(stg1, file = 'G://My Drive/Papers/SPEI-Malnutrition/SPEI-MalnutritionTex/tables/S2.tex')
+cor(residuals(spei12_whz), all$whz_dhs)
+cor(residuals(spei24_whz), all$whz_dhs)
+cor(residuals(spei36_whz), all$whz_dhs)
+cor(residuals(spei12gs_whz), all$whz_dhs)
+cor(residuals(spei24gs_whz), all$whz_dhs)
+cor(residuals(spei36gs_whz), all$whz_dhs)
+cor(residuals(spei_ageutero_whz), all$whz_dhs)
+cor(residuals(spei_gs_ageutero_whz), all$whz_dhs)
+#highest is spei_ageutero?
+  
+##Log Likelihood
+##############################
+summary(spei12_haz)$logLik
+summary(spei24_haz)$logLik
+summary(spei36_haz)$logLik
+summary(spei12gs_haz)$logLik
+summary(spei24gs_haz)$logLik
+summary(spei36gs_haz)$logLik
+summary(spei_ageutero_haz)$logLik
+summary(spei_gs_ageutero_haz)$logLik
+#lowest is spei24
+
+summary(spei12_whz)$logLik
+summary(spei24_whz)$logLik
+summary(spei36_whz)$logLik
+summary(spei12gs_whz)$logLik
+summary(spei24gs_whz)$logLik
+summary(spei36gs_whz)$logLik
+summary(spei_ageutero_whz)$logLik
+summary(spei_gs_ageutero_whz)$logLik
+#lowest is spei36
 
 
-stg2 <- stargazer(spei36, spei36gs, spei_gs_ageutero, spei_gs_ageutero, title="Modeling Child Nutrition With SPEI Calculated at Various Timeframes (Part 2)",
-                  #out = 'G://My Drive/Papers/SPEI-Malnutrition/SPEI-MalnutritionTex/tables/S3.tex',
-                  column.labels=c("36-Month", "36-Month Growing Season",
-                                  "Child's Age", "Child's Age Growing Season"),
-                  dep.var.labels.include=FALSE,
-                  dep.var.caption='',
-                  covariate.labels=c('Age', "Birth Order", "Child is Male", "Birthmonth - February", "Birthmonth - March",
-                                     "Birthmonth - April", "Birthmonth - May", "Birthmonth - June", "Birthmonth - July", "Birthmonth - August", "Birthmonth - September",
-                                     "Birthmonth - October", "Birthmonth - November", "Birthmonth - December", 
-                                     "Mother's Years of Education",
-                                     "Toilet - No Facility", "Toilet - Other", "Toilet - Pit Latrine", "Household Size", 
-                                     "Household Head Age", "Household Head is Male", 
-                                     "Wealth Index - Poorer", "Wealth Index - Poorest", "Wealth Index - Richer", "Wealth Index - Richest",
-                                     "SPEI", "SPEI Squared", 
-                                     "Intercept"))
 
-#Need to make manual edits to table based on this:
-#https://tex.stackexchange.com/questions/424435/help-with-long-table-from-stargazer
-
-stg2 <- stg2[c(1, 2, 3, 7, 5, 6, seq(8, (length(stg2) - 1)))]
-stg2 <- gsub('tabular', 'longtable', stg2)
-stg2 <- paste0(stg2, collapse='\n')
-cat(stg2, file = 'G://My Drive/Papers/SPEI-Malnutrition/SPEI-MalnutritionTex/tables/S3.tex')
