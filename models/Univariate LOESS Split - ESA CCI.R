@@ -4,24 +4,12 @@ library(lme4)
 
 setwd('G://My Drive/DHS Processed')
 
-hh <- read.csv('HH_data_A.csv')
-lc <- read.csv('landcover_processed.csv')
-spei <- read.csv('PrecipIndices.csv')
-cov <- read.csv('SpatialCovars.csv')
-gl <- read.csv('globeland30_processed.csv')
-
-all <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hh, lc, spei, cov, gl)) %>%
-  filter(longitude > -20 & longitude < 60 & latitude < 22)
+all <- read.csv('dhs-africa-matched.csv')
 
 #Get Residuals
-mod <- lmer(haz_dhs ~ interview_year + age + birth_order + hhsize + sex + mother_years_ed + toilet +
-              head_age + head_sex + wealth_index + (1|surveycode) + (1|country), data=all)
+mod.urban <- loess(haz_residuals ~ spei24, data = all %>% filter(!natural), span = 0.5)
 
-all$residuals <- residuals(mod)
-
-mod.urban <- loess(residuals ~ spei24, data = all %>% filter(natural <= median(plt$natural)), span = 1)
-
-mod.rural <- loess(residuals ~ spei24, data = all %>% filter(natural > median(plt$natural)), span = 1)
+mod.rural <- loess(haz_residuals ~ spei24, data = all %>% filter(natural), span = 0.5)
 
 mod <- c('> Median Natural Land Cover', '<= Median Natural Land Cover')
 spei24 <- seq(-3, 3, len=100)
