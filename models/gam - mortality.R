@@ -18,13 +18,13 @@ data <- data %>%
                    "ZW") & year >= 1992 & year <= 2015)
 
 data <- data %>%
-  filter(is.na(spei3) | is.na(spei36))
+  filter(!is.na(spei3) & !is.na(spei36) & !is.infinite(spei3) & !is.infinite(spei36))
 
 cl <- makeCluster(20, outfile = '')
 
 #Short term rainfall shocks
-spei3_africa_gam <- bam(mortality ~ age + mother_years_ed + mothers_age + birth_order + male + s(spei3, bs='cr'),
-                        family='binomial', data=data, cluster=cl)
+spei3_africa_gam <- bam(mortality ~ age + mother_years_ed + mothers_age + birth_order + male + country + s(spei3, bs='cr'),
+                              family='binomial', data=data, cluster=cl)
 
 save(spei3_africa_gam, file='~/mortalityblob/lc_gams/spei3_africa_gam.Rdata')
 
@@ -32,12 +32,46 @@ rm(spei3_africa_gam)
 
 
 #Long term rainfall shocks
-spei36_africa_gam <- bam(mortality ~ age + mother_years_ed + mothers_age + birth_order + male + s(spei36, bs='cr'),
-                         family='binomial', data=data, cluster=cl)
+spei36_africa_gam <- bam(mortality ~ age + mother_years_ed + mothers_age + birth_order + male + country + s(spei36, bs='cr'),
+                               family='binomial', data=data, cluster=cl)
 
 save(spei36_africa_gam, file='~/mortalityblob/lc_gams/spei36_africa_gam.Rdata')
 
 rm(spei36_africa_gam)
+
+#Short term rainfall shocks
+spei3_africa_gam_ctyfe <- bam(mortality ~ age + mother_years_ed + mothers_age + birth_order + male + country + s(spei3, bs='cr'),
+                        family='binomial', data=data, cluster=cl)
+
+save(spei3_africa_gam_ctyfe, file='~/mortalityblob/lc_gams/spei3_africa_gam_ctyfe.Rdata')
+
+rm(spei3_africa_gam_ctyfe)
+
+
+#Long term rainfall shocks
+spei36_africa_gam_ctyfe <- bam(mortality ~ age + mother_years_ed + mothers_age + birth_order + male + country + s(spei36, bs='cr'),
+                         family='binomial', data=data, cluster=cl)
+
+save(spei36_africa_gam_ctyfe, file='~/mortalityblob/lc_gams/spei36_africa_gam_ctyfe.Rdata')
+
+rm(spei36_africa_gam_ctyfe)
+
+#Short term rainfall shocks
+spei3_africa_gam_tp <- bam(mortality ~ age + mother_years_ed + mothers_age + birth_order + male + country + s(spei3, bs='cr'),
+                           family='binomial', data=data, cluster=cl)
+
+save(spei3_africa_gam_tp, file='~/mortalityblob/lc_gams/spei3_africa_gam_tp.Rdata')
+
+rm(spei3_africa_gam_tp)
+
+
+#Long term rainfall shocks
+spei36_africa_gam_tp <- bam(mortality ~ age + mother_years_ed + mothers_age + birth_order + male + country + s(spei36, bs='cr'),
+                            family='binomial', data=data, cluster=cl)
+
+save(spei36_africa_gam_tp, file='~/mortalityblob/lc_gams/spei36_africa_gam_tp.Rdata')
+
+rm(spei36_africa_gam_tp)
 
 system('/home/mattcoop/telegram.sh "Mortality GAMs Done!"')
 
