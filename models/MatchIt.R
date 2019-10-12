@@ -1,4 +1,4 @@
-setwd('G://My Drive/DHS Processed')
+setwd('~/../mattcoop/mortalityblob/dhs')
 
 library(MatchIt)
 library(tidyverse)
@@ -10,88 +10,59 @@ hha <- read.csv('HH_data_A_norm.csv')
 spei <- read.csv('PrecipIndices.csv')
 cov <- read.csv('SpatialCovars.csv')
 lc <- read.csv('landcover_processed.csv')
-fs <- read.csv('FarmingSystems.csv')
-
-#################
-#Entire DHS
-#################
-
-all <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hha, spei, cov, lc, fs)) %>%
-  filter(market_dist > 150) %>%
-  na.omit
-
-haz_mod <- lmer(haz_dhs ~ interview_year + age + birth_order + hhsize + sex + mother_years_ed + toilet +
-              head_age + head_sex + wealth_norm + (1|surveycode) + (1|country), data=all)
-
-all$haz_residuals <- residuals(haz_mod)
-
-whz_mod <- lmer(whz_dhs ~ interview_year + age + birth_order + hhsize + sex + mother_years_ed + toilet +
-                  head_age + head_sex + wealth_norm + (1|surveycode) + (1|country), data=all)
-
-all$whz_residuals <- residuals(whz_mod)
-
-sel <- all %>%
-  mutate(natural = ifelse(natural > median(all$natural), TRUE, FALSE))
-
-# sel$population <- round(log(sel$population + 1))
-# sel$grid_gdp <- round(log(sel$grid_gdp))
-# sel$urbanization <- round(log(sel$urban*1000 + 1))
-# sel$interview_decade <- trunc(sel$interview_year/10)*10
-# sel$mean_annual_precip <- round(log(sel$mean_annual_precip), 1)
-# sel$market_dist <- round(log(sel$market_dist + 1))
-
-sel$population <- log(sel$population + 1)
-sel$grid_gdp <- log(sel$grid_gdp)
-sel$urbanization <- log(sel$urban*1000 + 1)
-sel$mean_annual_precip <- log(sel$mean_annual_precip + 1)
-sel$market_dist <- log(sel$market_dist + 1)
-
-m.out <- matchit(natural ~ population + spei24 + grid_gdp + market_dist + 
-                   urbanization + interview_year + mean_annual_precip,
-                 method='nearest', replace=TRUE, data=sel)
-
-dat <- match.data(m.out)
-
-write.csv(dat, 'G://My Drive/DHS Processed/dhs-all-matched.csv', row.names=F)
-
+aez <- read.csv('AEZ.csv')
 
 ##################
 #Just Africa
 #################
-all <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hha, spei, cov, lc, fs)) %>%
-  filter(market_dist > 150 & continent=="ssa_fs_final") %>%
+all <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hha, spei, cov, lc, aez)) %>%
+  filter(latitude < 20 & longitude > -25 & longitude < 75 & builtup < 0.05) %>%
   na.omit
 
-haz_mod <- lmer(haz_dhs ~ interview_year + age + birth_order + hhsize + sex + mother_years_ed + toilet +
-                  head_age + head_sex + wealth_norm + (1|surveycode) + (1|country), data=all)
+all$population <- log(all$population + 1)
+all$grid_gdp <- log(all$grid_gdp)
+all$urbanization <- log(all$urban*1000 + 1)
+all$mean_annual_precip <- log(all$mean_annual_precip + 1)
+all$market_dist <- log(all$market_dist + 1)
 
-all$haz_residuals <- residuals(haz_mod)
+hhmatch <- data.frame()
+geomatch <- data.frame()
+allmatch <- data.frame()
 
-whz_mod <- lmer(whz_dhs ~ interview_year + age + birth_order + hhsize + sex + mother_years_ed + toilet +
-                  head_age + head_sex + wealth_norm + (1|surveycode) + (1|country), data=all)
+for (i in unique(all$AEZ_new)){
+  
+  ix <- all$AEZ_new==i
+  
+  all$NatClass[ix] <- ifelse(all$natural[ix] > median(all$natural[ix]), "Nature", "Ag")
+  
+  all$NatBin <- all$NatClass == 'Nature'
+  
+  geo.out <- matchit(NatBin ~ population + grid_gdp + market_dist +
+                       urbanization + interview_year,
+                     method='nearest', replace=TRUE, data=all %>% filter(AEZ_new == i))
+  
+  hh.out <- matchit(NatBin ~ age + birth_order + hhsize + sex + mother_years_ed + toilet +
+                      head_age + head_sex + wealth_norm,
+                    method='nearest', replace=TRUE, data=all %>% filter(AEZ_new == i))
+  
+  all.out <- matchit(NatBin ~ age + birth_order + hhsize + sex + mother_years_ed + toilet +
+                       head_age + head_sex + wealth_norm + population + grid_gdp + market_dist +
+                       urbanization + interview_year,
+                     method='nearest', replace=TRUE, data=all %>% filter(AEZ_new == i))
+  
+  save(geo.out, file = paste0('../lc_gams/matchgeo-', i, '.Rdata'))
+  save(hh.out, file = paste0('../lc_gams/matchhh-', i, '.Rdata'))
+  save(all.out, file = paste0('../lc_gams/matchall-', i, '.Rdata'))
+  
+  
+  geomatch <- bind_rows(geomatch, match.data(geo.out))
+  allmatch <- bind_rows(allmatch, match.data(all.out))
+  hhmatch <- bind_rows(hhmatch, match.data(hh.out))
+}
 
-all$whz_residuals <- residuals(whz_mod)
+write.csv(allmatch, 'dhs-africa-matched-all.csv', row.names=F)
+write.csv(hhmatch, 'dhs-africa-matched-hh.csv', row.names=F)
+write.csv(geomatch, 'dhs-africa-matched-geo.csv', row.names=F)
 
-sel <- all %>%
-  mutate(natural = ifelse(natural > median(all$natural), TRUE, FALSE))
+system('~/telegram.sh "Matching Done!"')
 
-# sel$population <- round(log(sel$population + 1))
-# sel$grid_gdp <- round(log(sel$grid_gdp))
-# sel$urbanization <- round(log(sel$urban*1000 + 1))
-# sel$interview_decade <- trunc(sel$interview_year/10)*10
-# sel$mean_annual_precip <- round(log(sel$mean_annual_precip), 1)
-# sel$market_dist <- round(log(sel$market_dist + 1))
-
-sel$population <- log(sel$population + 1)
-sel$grid_gdp <- log(sel$grid_gdp)
-sel$urbanization <- log(sel$urban*1000 + 1)
-sel$mean_annual_precip <- log(sel$mean_annual_precip + 1)
-sel$market_dist <- log(sel$market_dist + 1)
-
-m.out <- matchit(natural ~ population + spei24 + grid_gdp + market_dist + 
-                   urbanization + interview_year + mean_annual_precip,
-                 method='nearest', replace=TRUE, data=sel)
-
-dat <- match.data(m.out)
-
-write.csv(dat, 'G://My Drive/DHS Processed/dhs-africa-matched.csv', row.names=F)
