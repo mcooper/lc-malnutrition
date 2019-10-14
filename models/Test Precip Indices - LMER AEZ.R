@@ -7,22 +7,22 @@ setwd('G://My Drive/DHS Processed')
 
 hha <- read.csv('HH_data_A_norm.csv') %>%
   mutate(country=substr(code, 1, 2))
+cov <- read.csv('SpatialCovars.csv')
 spei <- read.csv('PrecipIndices.csv')
 spei_short <- read.csv('PrecipIndicesShortTerm.csv')
 aez <- read.csv('AEZ.csv')
 
-comb <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hha, spei, spei_short, aez))
-
-#Filter to just Africa
-all <- comb #%>%
-  #filter(latitude < 25 & longitude > -18 & longitude < 52 & !country %in% c('EG'))
+comb <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hha, cov, spei, spei_short, aez)) %>%
+  filter(latitude < 20 & longitude > -25 & longitude < 75 & builtup < 0.05) %>%
+  na.omit
 
 for (i in c("spei12", "spei24", "spei36", "spei1", "spei2", "spei3", "spei6")){
   all <- all[!is.infinite(all[ , i]) & !is.na(all[ , i]) & !is.nan(all[ , i]), ]
 }
 
 summarydf <- data.frame()
-for (i in c("spei12", "spei24", "spei36", "spei1", "spei2", "spei3", "spei6")){
+#for (i in c("spei12", "spei24", "spei36", "spei1", "spei2", "spei3", "spei6")){
+for (i in c("spei24")){
   all$spei <- all[ , i]
   
   for (z in levels(aez$AEZ_new)){
@@ -34,16 +34,16 @@ for (i in c("spei12", "spei24", "spei36", "spei1", "spei2", "spei3", "spei6")){
     haz_mod <- lm(haz_dhs ~ age + birth_order + sex + as.factor(calc_birthmonth) + 
                       mother_years_ed + toilet + hhsize + 
                       head_age + head_sex + wealth_norm + 
-                      interview_year + spei + country, 
-           data=sel)
+                      interview_year + spei, 
+           data=sel %>% filter(spei < 1))
     
     assign(paste0(i, '_haz_mod'), haz_mod)
     
     whz_mod <- lm(whz_dhs ~ age + birth_order + sex + as.factor(calc_birthmonth) + 
                       mother_years_ed + toilet + hhsize + 
                       head_age + head_sex + wealth_norm + 
-                      interview_year + spei + country, 
-                    data=sel)
+                      interview_year + spei, 
+                    data=sel %>% filter(spei > -1))
     
     assign(paste0(i, '_whz_mod'), whz_mod)
     
@@ -54,7 +54,7 @@ for (i in c("spei12", "spei24", "spei36", "spei1", "spei2", "spei3", "spei6")){
              AEZ=z,
              y='haz',
              loglik=summary(haz_mod)$logLik,
-             rsq=cor(residuals(haz_mod), sel$haz_dhs))
+             rsq=cor(residuals(haz_mod), sel$haz_dhs[sel$spei < 1]))
     
     whz_res <- tidy(whz_mod) %>%
       filter(term=='spei') %>%
@@ -63,11 +63,11 @@ for (i in c("spei12", "spei24", "spei36", "spei1", "spei2", "spei3", "spei6")){
              AEZ=z,
              y='whz',
              loglik=summary(whz_mod)$logLik,
-             rsq=cor(residuals(whz_mod), sel$whz_dhs))
+             rsq=cor(residuals(whz_mod), sel$whz_dhs[sel$spei > -1]))
   
     summarydf <- bind_rows(summarydf, haz_res, whz_res)
 
   }
 }
 
-
+View(summarydf %>% select(y, spei, AEZ, statistic) %>% arrange(y, spei, AEZ) %>% filter(grepl('Africa', AEZ) & y=='haz'))
