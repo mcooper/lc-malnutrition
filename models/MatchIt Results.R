@@ -2,16 +2,11 @@ setwd('G://My Drive/DHS Processed')
 
 library(tidyverse)
 library(broom)
-library(lmer4)
+library(lme4)
 
-precip <- read.csv('PrecipIndicesShortTerm.csv')
-
-all <- read.csv('dhs-africa-matched-all.csv') %>% 
-  merge(precip)
-geo <- read.csv('dhs-africa-matched-geo.csv') %>% 
-  merge(precip)
-hh <- read.csv('dhs-africa-matched-hh.csv') %>% 
-  merge(precip)
+all <- read.csv('dhs-africa-matched-all.csv')
+geo <- read.csv('dhs-africa-matched-geo.csv')
+hh <- read.csv('dhs-africa-matched-hh.csv')
 
 getSPEIstat <- function(mod){
   tidy(mod) %>% filter(term=='spei24') %>% select(statistic) %>% as.numeric
@@ -20,30 +15,24 @@ getSPEIstat <- function(mod){
 droughtdf <- data.frame()
 for (aez in unique(all$AEZ_new)){
   
-  allmod <- lm(haz_dhs ~ spei24 + age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + as.factor(calc_birthmonth) + 
-                 head_age + head_sex + wealth_norm, data=all %>% filter(AEZ_new==aez & spei24 < 1))
-  geomod <- lm(haz_dhs ~ spei24 + age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + as.factor(calc_birthmonth) + 
+  geomod <- lm(haz_dhs ~ spei24 + age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + as.factor(calc_birthmonth) + population + grid_gdp + urban + market_dist + 
                  head_age + head_sex + wealth_norm, data=geo %>% filter(AEZ_new==aez & spei24 < 1))
-  hhmod <- lm(haz_dhs ~ spei24 + age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + as.factor(calc_birthmonth) + 
+  hhmod <- lm(haz_dhs ~ spei24 + age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + as.factor(calc_birthmonth) + population + grid_gdp + urban + market_dist + 
                 head_age + head_sex + wealth_norm, data=hh %>% filter(AEZ_new==aez & spei24 < 1))
   
-  allmod_re <- lmer(haz_dhs ~ spei24 + age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + as.factor(calc_birthmonth) + 
-                   head_age + head_sex + wealth_norm + (1|country) + (1|surveycode), data=all %>% filter(AEZ_new==aez & spei24 < 1))
-  geomod_re <- lmer(haz_dhs ~ spei24 + age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + as.factor(calc_birthmonth) + 
+  geomod_re <- lmer(haz_dhs ~ spei24 + age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + as.factor(calc_birthmonth) + population + grid_gdp + urban + market_dist + 
                    head_age + head_sex + wealth_norm + (1|country) + (1|surveycode), data=geo %>% filter(AEZ_new==aez & spei24 < 1))
-  hhmod_re <- lmer(haz_dhs ~ spei24 + age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + as.factor(calc_birthmonth) + 
+  hhmod_re <- lmer(haz_dhs ~ spei24 + age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + as.factor(calc_birthmonth) + population + grid_gdp + urban + market_dist + 
                   head_age + head_sex + wealth_norm + (1|country) + (1|surveycode), data=hh %>% filter(AEZ_new==aez & spei24 < 1))
   
   droughtdf <- bind_rows(droughtdf, data.frame(AEZ=aez,
-                                 matching=c('all', 'geo', 'hh'),
-                                 ne.spei.tvalue=c(getSPEIstat(allmod),
-                                               getSPEIstat(geomod),
+                                 matching=c('geo', 'hh'),
+                                 ne.spei.tvalue=c(getSPEIstat(geomod),
                                                getSPEIstat(hhmod)),
-                                 re.spei.tvalue=c(getSPEIstat(allmod_re),
-                                               getSPEIstat(geomod_re),
+                                 re.spei.tvalue=c(getSPEIstat(geomod_re),
                                                getSPEIstat(hhmod_re)),
-                                 ne.AIC=c(AIC(allmod), AIC(geomod), AIC(hhmod)),
-                                 re.AIC=c(AIC(allmod_re), AIC(geomod_re), AIC(hhmod_re))))
+                                 ne.AIC=c(AIC(geomod), AIC(hhmod)),
+                                 re.AIC=c(AIC(geomod_re), AIC(hhmod_re))))
   
 }
 
@@ -53,15 +42,15 @@ droughtdf$NoReBetter <- droughtdf$ne.AIC < droughtdf$re.AIC
 
 
 #Try again list lmer?, so the coefs are the same for everything except SPEI
-combDroughtMod <- lmer(haz_dhs ~ age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + as.factor(calc_birthmonth) + 
-                         head_age + head_sex + wealth_norm + (1 + spei24|AEZ_new), data=geo %>% filter(spei24 < 1))
+combDroughtMod <- lmer(haz_dhs ~ age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + as.factor(calc_birthmonth) + population + grid_gdp + urban + market_dist + 
+                         head_age + head_sex + wealth_norm + (1 + spei24|AEZ_new), data=hh %>% filter(spei24 < 1))
 
 re <- ranef(combDroughtMod)
 
-geo$AEZ.Nat <- paste0(geo$AEZ_new, geo$NatBin)
+hh$AEZ.Nat <- paste0(hh$AEZ_new, hh$NatBin)
 
-combDroughtNatureMod <- lmer(haz_dhs ~ age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + as.factor(calc_birthmonth) + 
-                         head_age + head_sex + wealth_norm + (1 + spei24|AEZ.Nat), data=geo %>% filter(spei24 < 1))
+combDroughtNatureMod <- lmer(haz_dhs ~ age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + as.factor(calc_birthmonth) + population + grid_gdp + urban + market_dist + 
+                         head_age + head_sex + wealth_norm + (1 + spei24|AEZ.Nat), data=hh %>% filter(spei24 < 1))
 
 re <- ranef(combDroughtNatureMod) %>% data.frame
 
