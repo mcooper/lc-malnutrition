@@ -1,41 +1,100 @@
 library(tidyverse)
 library(mgcv)
-library(Hmisc)
+library(viridisLite)
 
-data <- read.csv('G://My Drive/DHS Processed/lc-malnutrition-weights.csv')
-precip <- read.csv('G://My Drive/DHS Processed/PrecipIndicesShortTerm.csv')
+setwd('G://My Drive/DHS Processed')
 
-comb <- merge(data, precip, all.x=T, all.y=F)
+hha <- read.csv('HH_data_A_norm.csv')
+spei <- read.csv('PrecipIndices.csv')
+cov <- read.csv('SpatialCovars.csv')
+lc <- read.csv('landcover_processed.csv')
+aez <- read.csv('AEZ.csv')
 
-#data$urban_c <- cut2(data$urban, g=4)
-#   
-# whz_ti <- gam(whz_dhs ~ age + as.factor(calc_birthmonth) + 
-#                 birth_order + hhsize + sex + mother_years_ed + toilet +
-#                 head_age + head_sex + wealth_norm + interview_year + 
-#                 s(spei24), data=data, weights=data$weights)
+##################
+#Just Africa
+#################
+all <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hha, spei, cov, lc, aez)) %>%
+  filter(latitude < 20 & longitude > -25 & longitude < 75) %>%
+  na.omit
 
-haz25gcv <- gamm(haz_dhs ~ age + as.factor(calc_birthmonth) + 
-                birth_order + hhsize + sex + mother_years_ed + toilet +
-                head_age + head_sex + wealth_norm + interview_year +
-                s(spei24), data=comb, random=list(country=~1, surveycode=~1))
+all$market_dist <- log(all$market_dist + 1)
 
-haz25reml <- gamm(haz_dhs ~ age + as.factor(calc_birthmonth) + 
-                  birth_order + hhsize + sex + mother_years_ed + toilet +
-                  head_age + head_sex + wealth_norm + interview_year + 
-                  s(spei24), data=comb, method='REML', random=list(country=~1, surveycode=~1))
+comb <- data.frame()
+for (i in unique(all$AEZ_new)){
+  
+  modsel <- all %>% filter(spei24 < 1 & market_dist > 2 & market_dist < 6 & AEZ_new == i)
+  
+  mod <- gam(haz_dhs ~ age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + 
+               as.factor(calc_birthmonth) + head_age + head_sex + wealth_norm + 
+               s(latitude, longitude, bs='sos') + s(market_dist, natural, by=spei24), 
+             data=modsel,
+             method='REML')
+  
+  df <- expand.grid(list(natural=seq(0, 1, length.out=100),
+                         market_dist=seq(min(modsel$market_dist), max(modsel$market_dist), length.out = 100),
+                         spei24=1))
+  
+  df$age <- 1
+  df$birth_order <- 1
+  df$hhsize <- 10
+  df$sex <- "Male"
+  df$mother_years_ed <- 10
+  df$toilet <- "Other"
+  df$interview_year <- 2000
+  df$calc_birthmonth <- 3
+  df$head_age <- 40
+  df$head_sex <- "Male"
+  df$wealth_norm <- 0
+  df$latitude <- 0
+  df$longitude <- 0
+  
+  p <- predict(mod, df, type='terms', se=T)
+  
+  df$smooth <- p$fit[ , 's(market_dist,natural):spei24']
+  df$smooth_se <- p$se.fit[ , 's(market_dist,natural):spei24']
+  
+  sel <- df %>% 
+    select(smooth, market_dist, natural, spei24, smooth_se) %>%
+    mutate(AEZ=i)
+  
 
-data$urban_l <- cut2(data$urban, g=4)
+  comb <- bind_rows(comb, sel)  
+}
 
-whz_te <- gam(whz_dhs ~ age + as.factor(calc_birthmonth) + 
-             birth_order + hhsize + sex + mother_years_ed + toilet +
-             head_age + head_sex + wealth_norm + interview_year + 
-             te(treat, spei24), data=data, weights=data$weights)
+#Plot all
+for (i in unique(comb$AEZ)){
+  ggplot() + 
+    geom_tile(data=comb %>% filter(AEZ==i), aes(x=market_dist, y=natural, fill=smooth)) + 
+    geom_point(data=all %>% filter(spei24 < 1 & market_dist > 2 & market_dist < 6 & AEZ_new == i), 
+               aes(x=market_dist, y=natural), shape=16, size=0.1, alpha=0.5) +
+    scale_x_continuous(labels=function(x){round(exp(x))}, expand = c(0,0)) + 
+    scale_y_continuous(expand=c(0,0)) +
+    scale_fill_viridis_c() + 
+    labs(title=i)
+  
+  ggsave(paste0('C://Users/matt/Desktop/', i, '.png'))
+}
 
-haz_te <- gam(haz_dhs ~ age + as.factor(calc_birthmonth) + 
-             birth_order + hhsize + sex + mother_years_ed + toilet +
-             head_age + head_sex + wealth_norm + interview_year + 
-             te(treat, spei24), data=data, weights=data$weights)
+comb$significant <- (abs(comb$smooth) - comb$smooth_se*2) > 0
 
-plot(haz_ti, se=FALSE)
-plot(haz_te, se=FALSE)
+#Plot only significant vars
+for (i in unique(comb$AEZ)){
+  ggplot() + 
+    geom_tile(data=comb %>% filter(AEZ==i), aes(x=market_dist, y=natural, fill=smooth)) + 
+    geom_point(data=comb %>% filter(AEZ==i), 
+               aes(x=market_dist, y=natural, color=significant), shape=16, size=0.1, alpha=0.5) +
+    scale_x_continuous(labels=function(x){round(exp(x))}, expand = c(0,0)) + 
+    scale_y_continuous(expand=c(0,0)) +
+    scale_fill_viridis_c() + 
+    scale_color_manual(values=c('black', 'white')) + 
+    labs(title=i)
+  
+  ggsave(paste0('C://Users/matt/Desktop/', i, '_signif.png'))
+}
+
+
+
+
+
+
 

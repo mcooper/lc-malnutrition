@@ -4,9 +4,9 @@ library(tidyverse)
 library(broom)
 library(lme4)
 
-all <- read.csv('dhs-africa-matched-all.csv')
-geo <- read.csv('dhs-africa-matched-geo.csv')
-hh <- read.csv('dhs-africa-matched-hh.csv')
+all <- read.csv('dhs-africa-matched-all-bundoks.csv')
+geo <- read.csv('dhs-africa-matched-geo-bundoks.csv')
+hh <- read.csv('dhs-africa-matched-hh-bundoks.csv')
 
 getSPEIstat <- function(mod){
   tidy(mod) %>% filter(term=='spei24') %>% select(statistic) %>% as.numeric
@@ -47,10 +47,10 @@ combDroughtMod <- lmer(haz_dhs ~ age + birth_order + hhsize + sex + mother_years
 
 re <- ranef(combDroughtMod)
 
-hh$AEZ.Nat <- paste0(hh$AEZ_new, hh$NatBin)
+all$AEZ.Nat <- paste0(all$AEZ_new, all$NatBin)
 
 combDroughtNatureMod <- lmer(haz_dhs ~ age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + as.factor(calc_birthmonth) + population + grid_gdp + urban + market_dist + 
-                         head_age + head_sex + wealth_norm + (1 + spei24|AEZ.Nat), data=hh %>% filter(spei24 < 1))
+                         head_age + head_sex + wealth_norm + (1 + spei24|AEZ.Nat), data=all %>% filter(spei24 < 1))
 
 re <- ranef(combDroughtNatureMod) %>% data.frame
 
