@@ -19,17 +19,33 @@ all <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hha, spei, cov, 
 
 all$market_dist <- log(all$market_dist + 1)
 
+all$Arid.NAfrica <- (all$AEZ_new == 'Arid NAfrica')*all$spei24
+all$Arid.SAfrica <- (all$AEZ_new == 'Arid SAfrica')*all$spei24
+all$Forest.Africa <- (all$AEZ_new == 'Forest Africa')*all$spei24
+all$Highlands.Africa <- (all$AEZ_new == 'Highlands Africa')*all$spei24
+all$LAC.Highlands <- (all$AEZ_new == 'LAC Highlands')*all$spei24
+all$Savanna.NAfrica <- (all$AEZ_new == 'Savanna NAfrica')*all$spei24
+all$Savanna.SEAfrica <- (all$AEZ_new == 'Savanna SEAfrica')*all$spei24
+all$SemiForest.Africa <- (all$AEZ_new == 'SemiForest Africa')*all$spei24
+  
+mod <- gam(haz_dhs ~ age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + 
+             as.factor(calc_birthmonth) + head_age + head_sex + wealth_norm + 
+             #s(latitude, longitude, bs='sos') + 
+             s(market_dist, natural, by=Arid.NAfrica) + 
+             s(market_dist, natural, by=Arid.SAfrica) + 
+             #s(market_dist, natural, by=Forest.Africa) + 
+             s(market_dist, natural, by=Highlands.Africa) + 
+             s(market_dist, natural, by=LAC.Highlands) + 
+             s(market_dist, natural, by=Savanna.NAfrica) + 
+             s(market_dist, natural, by=Savanna.SEAfrica) + 
+             s(market_dist, natural, by=SemiForest.Africa), 
+           data=all,
+           method='REML',
+           select=TRUE)
+
 comb <- data.frame()
+
 for (i in unique(all$AEZ_new)){
-  
-  modsel <- all %>% filter(spei24 < 1 & market_dist > 2 & market_dist < 6 & AEZ_new == i)
-  
-  mod <- gam(haz_dhs ~ age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + 
-               as.factor(calc_birthmonth) + head_age + head_sex + wealth_norm + 
-               s(latitude, longitude, bs='sos') + s(market_dist, natural, by=spei24), 
-             data=modsel,
-             method='REML')
-  
   df <- expand.grid(list(natural=seq(0, 1, length.out=100),
                          market_dist=seq(min(modsel$market_dist), max(modsel$market_dist), length.out = 100),
                          spei24=1))
@@ -47,6 +63,7 @@ for (i in unique(all$AEZ_new)){
   df$wealth_norm <- 0
   df$latitude <- 0
   df$longitude <- 0
+  df$AEZ_new <- i
   
   p <- predict(mod, df, type='terms', se=T)
   
