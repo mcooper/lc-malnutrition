@@ -19,37 +19,38 @@ all <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hha, spei, cov, 
 
 all$market_dist <- log(all$market_dist + 1)
 
-all$Arid.NAfrica <- (all$AEZ_new == 'Arid NAfrica')*all$spei24
-all$Arid.SAfrica <- (all$AEZ_new == 'Arid SAfrica')*all$spei24
-all$Forest.Africa <- (all$AEZ_new == 'Forest Africa')*all$spei24
-all$Highlands.Africa <- (all$AEZ_new == 'Highlands Africa')*all$spei24
-all$LAC.Highlands <- (all$AEZ_new == 'LAC Highlands')*all$spei24
-all$Savanna.NAfrica <- (all$AEZ_new == 'Savanna NAfrica')*all$spei24
-all$Savanna.SEAfrica <- (all$AEZ_new == 'Savanna SEAfrica')*all$spei24
-all$SemiForest.Africa <- (all$AEZ_new == 'SemiForest Africa')*all$spei24
-  
+all$nafr.arid.1 <- (all$AEZ_new == 'nafr.arid.1')*all$spei24
+all$eafr.arid.2 <- (all$AEZ_new == 'eafr.arid.2')*all$spei24
+all$safr.arid.3 <- (all$AEZ_new == 'safr.arid.3')*all$spei24
+all$afr.forest.4 <- (all$AEZ_new == 'afr.forest.4')*all$spei24
+all$nafr.sav.5 <- (all$AEZ_new == 'nafr.sav.5')*all$spei24
+all$seafr.sav.6 <- (all$AEZ_new == 'seafr.sav.6')*all$spei24
+all$afr.high.7 <- (all$AEZ_new == 'afr.high.7')*all$spei24
+all$afr.subforest.8 <- (all$AEZ_new == 'afr.subforest.8')*all$spei24
+
+
 mod <- gam(haz_dhs ~ age + birth_order + hhsize + sex + mother_years_ed + toilet + interview_year + 
              as.factor(calc_birthmonth) + head_age + head_sex + wealth_norm + 
-             #s(latitude, longitude, bs='sos') + 
-             s(market_dist, natural, by=Arid.NAfrica) + 
-             s(market_dist, natural, by=Arid.SAfrica) + 
-             #s(market_dist, natural, by=Forest.Africa) + 
-             s(market_dist, natural, by=Highlands.Africa) + 
-             s(market_dist, natural, by=LAC.Highlands) + 
-             s(market_dist, natural, by=Savanna.NAfrica) + 
-             s(market_dist, natural, by=Savanna.SEAfrica) + 
-             s(market_dist, natural, by=SemiForest.Africa), 
-           data=all,
-           method='REML',
-           select=TRUE)
+             s(latitude, longitude, bs='sos') + AEZ_new + 
+             s(market_dist, natural, by=nafr.arid.1) + 
+             s(market_dsit, natural, by=eafr.arid.2) + 
+             s(market_dist, natural, by=safr.arid.3) + 
+             s(market_dist, natural, by=afr.forest.4) + 
+             s(market_dist, natural, by=nafr.sav.5) + 
+             s(market_dist, natural, by=seafr.sav.6) + 
+             s(market_dist, natural, by=afr.high.7) + 
+             s(market_dist, natural, by=afr.subforest.8) - 1, 
+           data=all %>% filter(spei24 < 1))
 
-comb <- data.frame()
+save(mod, file = 'G://My Drive/lc-malnutrition/GAMs/AEZ_Gam.Rdata')
 
 for (i in unique(all$AEZ_new)){
   df <- expand.grid(list(natural=seq(0, 1, length.out=100),
-                         market_dist=seq(min(modsel$market_dist), max(modsel$market_dist), length.out = 100),
-                         spei24=1))
+                         market_dist=seq(min(all$market_dist), max(all$market_dist), length.out = 100)))
   
+  df$AEZ_new <- i
+  df[ , gsub(' ', '.', as.character(unique(all$AEZ_new)))] <- 0
+  df[ , gsub(' ', '.', i)] <- 1
   df$age <- 1
   df$birth_order <- 1
   df$hhsize <- 10
@@ -63,18 +64,15 @@ for (i in unique(all$AEZ_new)){
   df$wealth_norm <- 0
   df$latitude <- 0
   df$longitude <- 0
-  df$AEZ_new <- i
   
   p <- predict(mod, df, type='terms', se=T)
   
-  df$smooth <- p$fit[ , 's(market_dist,natural):spei24']
-  df$smooth_se <- p$se.fit[ , 's(market_dist,natural):spei24']
+  df$smooth <- p$fit[ , paste0('s(market_dist,natural):', gsub(' ', '.', i))]
+  df$smooth_se <- p$se.fit[ , paste0('s(market_dist,natural):', gsub(' ', '.', i))]
   
-  sel <- df %>% 
-    select(smooth, market_dist, natural, spei24, smooth_se) %>%
-    mutate(AEZ=i)
+  sel <- df[ , c('smooth', 'market_dist', 'natural', 'smooth_se')]
+  sel$AEZ <- i
   
-
   comb <- bind_rows(comb, sel)  
 }
 
@@ -82,14 +80,14 @@ for (i in unique(all$AEZ_new)){
 for (i in unique(comb$AEZ)){
   ggplot() + 
     geom_tile(data=comb %>% filter(AEZ==i), aes(x=market_dist, y=natural, fill=smooth)) + 
-    geom_point(data=all %>% filter(spei24 < 1 & market_dist > 2 & market_dist < 6 & AEZ_new == i), 
+    geom_point(data=all %>% filter(AEZ_new == i), 
                aes(x=market_dist, y=natural), shape=16, size=0.1, alpha=0.5) +
     scale_x_continuous(labels=function(x){round(exp(x))}, expand = c(0,0)) + 
     scale_y_continuous(expand=c(0,0)) +
     scale_fill_viridis_c() + 
     labs(title=i)
   
-  ggsave(paste0('C://Users/matt/Desktop/', i, '.png'))
+  ggsave(paste0('G://My Drive/lc-malnutrition/GAMs/', i, '.png'))
 }
 
 comb$significant <- (abs(comb$smooth) - comb$smooth_se*2) > 0
@@ -106,11 +104,8 @@ for (i in unique(comb$AEZ)){
     scale_color_manual(values=c('black', 'white')) + 
     labs(title=i)
   
-  ggsave(paste0('C://Users/matt/Desktop/', i, '_signif.png'))
+  ggsave(paste0('G://My Drive/lc-malnutrition/GAMs/', i, '_signif.png'))
 }
-
-
-
 
 
 
