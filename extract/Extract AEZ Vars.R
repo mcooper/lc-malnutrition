@@ -54,17 +54,17 @@ new$AEZ_new[afr.forest.4] <- 'afr.forest.4'
 new$AEZ_new[nafr.sav.5] <- 'nafr.sav.5'
 new$AEZ_new[seafr.sav.6] <- 'seafr.sav.6'
 new$AEZ_new[afr.high.7] <- 'afr.high.7'
-new$AEZ_new[nafr.subforest.8] <- 'afr.subforest.8'
-new$AEZ_new[safr.subforest.9] <- 'afr.subforest.9'
+new$AEZ_new[nafr.subforest.8] <- 'nafr.subforest.8'
+new$AEZ_new[safr.subforest.9] <- 'safr.subforest.9'
 new$AEZ_new[se.asia.10] <- "se.asia.10"
 new$AEZ_new[eurasia.11] <- "eurasia.11"
 new$AEZ_new[me.na.12] <- "me.na.12"
 new$AEZ_new[lac.low.13] <- 'lac.low.13'
 new$AEZ_new[lac.high.14] <- 'lac.high.14'
 
-
 #Get country ISO3N as raster
 cty <- ne_countries()
+cty@data$iso_n3[cty@data$sovereignt=='Somaliland'] <- cty@data$iso_n3[cty@data$sovereignt=='Somalia']
 cty@data$iso_n3 <- as.numeric(cty@data$iso_n3)
 ctyr <- rasterize(cty, AEZ, field='iso_n3')
 
@@ -75,9 +75,9 @@ lon <- raster(lon_mat, xmn=-180, xmx=180, ymn=-50, ymx=50)
 lat <- raster(lat_mat, xmn=-180, xmx=180, ymn=-50, ymx=50)
 
 #nafr.arid.1
-AEZ[AEZ %in% c(211, 221, 311, 321) & ctyr %in% cty@data$iso_n3[cty@data$iso_a2 %in% c("SN", "ML", "NE", "NG", "BF", "CM", "TD")]] <- 1
+AEZ[AEZ %in% c(211, 221, 311, 321) & ctyr %in% cty@data$iso_n3[cty@data$iso_a2 %in% c("SN", "ML", "NE", "NG", "BF", "CM", "TD", 'MR', 'SD')]] <- 1
 #eafr.arid.2
-AEZ[AEZ %in%  c(211, 221, 311, 321) & lon > 26 & lat > -5 & lon < 55 & lat < 17] <- 2
+AEZ[AEZ %in%  c(211, 221, 311, 321) & ctyr %in% cty@data$iso_n3[cty@data$iso_a2 %in% c("ER", "ET", "DJ", "SO", "KE")]] <- 2
 #safr.arid.3
 AEZ[AEZ %in% c(211, 221, 311, 321) & lat < -5 & lon > -25 & lon < 55] <- 3
 #afr.forest.4
@@ -88,12 +88,12 @@ AEZ[AEZ == 312 & lat > 3.5 & lon > -25 & lon < 55] <- 5
 AEZ[AEZ == 312 & lat < 3.5 & lon > -25 & lon < 55] <- 6
 #afr.high.7
 AEZ[AEZ %in% c(322, 323, 324, 222, 223, 224) & lat < 17 & lon > -25 & lon < 55] <- 7
-#afr.subforest.8
+#nafr.subforest.8
 AEZ[AEZ == 313 & lat < 17 & lat > 0 & lon > -25 & lon < 55] <- 8
-#afr.subforest.9
+#safr.subforest.9
 AEZ[AEZ == 313 & lat < 0 & lon > -25 & lon < 55] <- 9
 #se.asia.10
-AEZ[lat < 33 & long > 78] <- 10
+AEZ[lat < 33 & lon > 78] <- 10
 #eurasia.11
 AEZ[ctyr %in% cty@data$iso_n3[cty@data$iso_a2 %in% c("MB", "AL", "AM", "TJ", "KY")]] <- 11
 #me.na.12
@@ -105,4 +105,5 @@ AEZ[AEZ %in% c(322, 323, 324) & lon < -35] <- 14
 
 AEZ[AEZ > 14] <- 0
 
-writeRaster(AEZ, 'G://My Drive/DHS Spatial Covars/AEZ/AEZ_DHS.tif', format='GTiff')
+writeRaster(AEZ, 'G://My Drive/DHS Spatial Covars/AEZ/AEZ_DHS.tif', format='GTiff', overwrite=T)
+write.csv(new, 'G://My Drive/DHS Processed/AEZ.csv', row.names=F)

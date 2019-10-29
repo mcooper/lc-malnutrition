@@ -3,12 +3,15 @@ setwd('~/mortalityblob/dhs/')
 #Based on 
 #https://imai.fas.harvard.edu/research/files/CBGPS.pdf
 
+options(stringsAsFactors=F)
+
 library(tidyverse)
 library(CBPS)
 
 hha <- read.csv('HH_data_A_norm.csv')
 spei <- read.csv('PrecipIndices.csv')
-cov <- read.csv('SpatialCovars.csv')
+cov <- read.csv('SpatialCovars.csv') %>%
+  dplyr::select(-AEZ, -AEZ_new, -AEZ_class, -AEZ_all)
 lc <- read.csv('landcover_processed.csv')
 aez <- read.csv('AEZ.csv')
 
@@ -16,8 +19,13 @@ aez <- read.csv('AEZ.csv')
 #Just Africa
 #################
 all <- Reduce(function(x, y){merge(x,y,all.x=T, all.y=F)}, list(hha, spei, cov, lc, aez)) %>%
-  filter(latitude < 20 & longitude > -25 & longitude < 75) %>%
+  filter(latitude < 20 & longitude > -25 & longitude < 75 & spei24 < 1) %>%
   na.omit
+
+#Agregate arid africa, which has the fewest observations
+all$AEZ_new[all$AEZ_new == 'eafr.arid.2'] <- 'afr.arid.123'
+all$AEZ_new[all$AEZ_new == 'safr.arid.3'] <- 'afr.arid.123'
+all$AEZ_new[all$AEZ_new == 'nafr.arid.1'] <- 'afr.arid.123'
 
 allweight <- data.frame()
 for (aez in unique(all$AEZ_new)){
@@ -36,7 +44,7 @@ for (aez in unique(all$AEZ_new)){
   allweight <- bind_rows(allweight, sel)
 }
 
-write.csv(allweight, 'lc-malnutrition-weights.csv', row.names=F)
+write.csv(allweight, '~/mortalityblob/dhs/lc-malnutrition-weights.csv', row.names=F)
 
 system('~/telegram.sh "landcover weights assigned!"')
 
