@@ -68,6 +68,10 @@ cty@data$iso_n3[cty@data$sovereignt=='Somaliland'] <- cty@data$iso_n3[cty@data$s
 cty@data$iso_n3 <- as.numeric(cty@data$iso_n3)
 ctyr <- rasterize(cty, AEZ, field='iso_n3')
 
+#Get lakes to set null
+lakes <- ne_download(scale = 50, type = 'lakes', category = 'physical')
+lakesr <- rasterize(lakes, AEZ, field='wdid_score')
+
 #Get lat long rasters
 lon_mat <- matrix(rep(seq(-180 + 0.05/2, 180 - 0.05/2, by=0.05), 2000), nrow = 2000, byrow = TRUE)
 lat_mat <- matrix(rep(seq(50 - 0.05/2, -50 + 0.05/2, by=-0.05), 7200), nrow = 2000, byrow = FALSE)
@@ -104,6 +108,8 @@ AEZ[!AEZ %in% c(322, 323, 324) & lon < -35] <- 13
 AEZ[AEZ %in% c(322, 323, 324) & lon < -35] <- 14
 
 AEZ[AEZ > 14] <- 0
+
+AEZ[lakesr > 3] <- 0
 
 writeRaster(AEZ, 'G://My Drive/DHS Spatial Covars/AEZ/AEZ_DHS.tif', format='GTiff', overwrite=T)
 write.csv(new, 'G://My Drive/DHS Processed/AEZ.csv', row.names=F)
