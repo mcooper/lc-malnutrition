@@ -109,7 +109,7 @@ AEZ[AEZ %in% c(322, 323, 324) & lon < -35] <- 14
 
 AEZ[AEZ > 14] <- 0
 
-AEZ[lakesr > 3] <- 0
+AEZ[lakesr > 3] <- NA
 
 writeRaster(AEZ, 'G://My Drive/DHS Spatial Covars/AEZ/AEZ_DHS.tif', format='GTiff', overwrite=T)
 write.csv(new, 'G://My Drive/DHS Processed/AEZ.csv', row.names=F)
