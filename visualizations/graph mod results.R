@@ -2,16 +2,15 @@ library(tidyverse)
 library(mgcv)
 library(ggplot2)
 
-modname <- 'AEZ_noweights_REML'
-
 setwd('G://My Drive/lc-malnutrition/')
+
+modname <- 'AEZ_weights_REML_natOnly'
 
 load(paste0('GAMs/', modname, '.Rdata'))
 
 comb <- data.frame()
 for (a in unique(mod$model$AEZ_new)){
-  df <- expand.grid(list(natural=seq(0, 1, length.out=100),
-                         market_dist=seq(0, 8.2, length.out = 100)))
+  df <- expand.grid(list(natural=seq(0, 1, length.out=100)))
 
   df$AEZ_new <- a
   df[ , as.character(unique(mod$model$AEZ_new))] <- 0

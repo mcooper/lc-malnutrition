@@ -27,6 +27,12 @@ while i < len(points):
 
 ccir = map(lambda(x): cci.reduceRegions(reducer=ee.Reducer.frequencyHistogram(), collection=x).getInfo(), features)
 
+#import json
+#f = open("/home/mattcoop/mortalityblob/lc_gams/lc_grid_raw", "w")
+#f.write(json.dumps(ccir))
+
+#ccir = json.loads(open("/home/mattcoop/mortalityblob/lc_gams/lc_grid_raw", "r").read())
+
 def rename_dict(pref, d):
     for i in d.keys():
         d[pref + i] = d.pop(i)
@@ -35,12 +41,13 @@ def rename_dict(pref, d):
 def merge_dicts(*dicts):
     superdict = {}
     for d in dicts:
-        for k, v in d.iteritems():
+        for k, v in d.items():
             superdict[k] = v
     return(superdict)
 
 cciaccum = pd.DataFrame()
-for f in ccir[:3]:
+for f in ccir:
+    print(ccir.index(f))
     for i in f['features']:
         temp = pd.DataFrame(merge_dicts(rename_dict('cci_', i['properties']['histogram']),
                                         {'x': i['properties']['x']},
@@ -49,5 +56,5 @@ for f in ccir[:3]:
 
 cciaccum = cciaccum.fillna(0)
 
-cciaccum.to_csv("G:\\My Drive\DHS Processed\landcover_grid.csv", index=False)
+cciaccum.to_csv("/home/mattcoop/mortalityblob/dhs/landcover_grid.csv", index=False)
 

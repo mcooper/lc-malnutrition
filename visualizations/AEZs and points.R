@@ -4,7 +4,7 @@ library(raster)
 library(tidyverse)
 library(stars)
 
-points <- read.csv('lc-malnutrition-weights.csv') %>%
+points <- read.csv('lc-malnutrition-weights2.csv') %>%
   select(latitude, longitude) %>%
   unique %>%
   mutate(color='black')
