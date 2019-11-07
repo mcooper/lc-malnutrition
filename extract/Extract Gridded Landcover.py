@@ -31,7 +31,7 @@ ccir = map(lambda(x): cci.reduceRegions(reducer=ee.Reducer.frequencyHistogram(),
 #f = open("/home/mattcoop/mortalityblob/lc_gams/lc_grid_raw", "w")
 #f.write(json.dumps(ccir))
 
-#ccir = json.loads(open("/home/mattcoop/mortalityblob/lc_gams/lc_grid_raw", "r").read())
+#ccir = json.loads(open("/home/mattcoop/mortalityblob/lc_gams/lc_grid_raw", "r").read().replace('cci_', ''))
 
 def rename_dict(pref, d):
     for i in d.keys():
@@ -41,20 +41,22 @@ def rename_dict(pref, d):
 def merge_dicts(*dicts):
     superdict = {}
     for d in dicts:
-        for k, v in d.items():
+        for k, v in d.iteritems():
             superdict[k] = v
     return(superdict)
 
-cciaccum = pd.DataFrame()
+cciaccum = []
 for f in ccir:
     print(ccir.index(f))
     for i in f['features']:
-        temp = pd.DataFrame(merge_dicts(rename_dict('cci_', i['properties']['histogram']),
+        temp = merge_dicts(rename_dict('cci_', i['properties']['histogram']),
                                         {'x': i['properties']['x']},
-                                        {'y': i['properties']['y']}), index = [0])
-        cciaccum = cciaccum.append(temp)
+                                        {'y': i['properties']['y']})
+        cciaccum.append(temp)
 
-cciaccum = cciaccum.fillna(0)
+cciaccumdf = pd.DataFrame(cciaccum)
 
-cciaccum.to_csv("/home/mattcoop/mortalityblob/dhs/landcover_grid.csv", index=False)
+cciaccumdf = cciaccumdf.fillna(0)
+
+cciaccumdf.to_csv("/home/mattcoop/mortalityblob/dhs/landcover_grid.csv", index=False)
 
