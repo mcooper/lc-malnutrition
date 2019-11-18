@@ -1,9 +1,9 @@
 library(dplyr)
 library(tidyr)
 
-setwd('G://My Drive/DHS Processed')
+setwd('~/mortalityblob/dhs/')
 
-gl <- read.csv('globeland30.csv')
+gl <- read.csv('globeland30_15km.csv')
 
 glp <- gl %>% gather(landcover, value, -interview_year, -code) %>%
   mutate(year=as.numeric(substr(landcover, nchar(landcover)-3, nchar(landcover))),
@@ -13,6 +13,7 @@ glp <- gl %>% gather(landcover, value, -interview_year, -code) %>%
   filter((year==2000 & interview_year <= 2005) | (year==2010 & interview_year >= 2006)) %>%
   select(-year)
 
+glp$Perc_Artificial <- glp$Artificial/rowSums(glp %>% select(-code, -interview_year))
 glp$Perc_Forest <- glp$Forest/ rowSums(glp %>% select(-code, -interview_year))
 glp$Perc_Grassland <- glp$Grassland/ rowSums(glp %>% select(-code, -interview_year))
 glp$Perc_Water <- glp$Water/ rowSums(glp %>% select(-code, -interview_year))

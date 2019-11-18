@@ -128,15 +128,15 @@ nr_dependent[increase == 0 | is.na(increase)] <- 0
 #Aggregate by country
 cty <- ne_countries()
 
-cty@data$extract <- raster::extract(increased_burden, cty, fun=sum)
-cty@data$extract <- raster::extract(nr_dependant, cty, fun=sum)
+cty@data$increased_burden <- raster::extract(increased_burden, cty, fun=sum, na.rm=T)
+cty@data$nr_dependant <- raster::extract(nr_dependent, cty, fun=sum, na.rm=T)
 
 library(sf)
 library(stars)
 
 cty_sf <- st_as_sf(cty)
 
-library(viridisLite)
+library(viridis)
 library(RColorBrewer)
 library(cowplot)
 library(scales)
@@ -161,19 +161,28 @@ increase <- ggplot() +
 
 burden <- ggplot() +
   geom_stars(data=log(increased_burden_stars + 1)) + 
-  scale_fill_gradient(low='#fee0d2', high='#de2d26',
-                      label=function(x){round(exp(x) + 1, 0)}) + 
+  #geom_sf(data=cty_sf, color='#EEEEEE', alpha=0) + 
+  scale_fill_viridis(direction = 1, option='A', 
+                     label=function(x){round(exp(x) + 1, 0)}) + 
+  xlim(-18, 52) + 
+  ylim(-35, 20) + 
   theme_void() + 
   labs(fill="Number\nPotental\nStunted\nChildren\nPer Pixel")
 
 cty_level <- ggplot(cty_sf) + 
-  geom_sf(aes(fill=extract)) + 
+  geom_sf(aes(fill=increased_burden)) + 
   scale_fill_gradient(low="#ece7f2", high="#2b8cbe",
                       labels=comma) + 
   xlim(-18, 52) + 
   ylim(-35, 20) + 
   theme_void() + 
-  labs(fill="Number\nVulnerable\nChildren\nPer Country")
+  labs(fill="Number\nPotential\nStunted\nChildren\nPer Country")
+
+plot_grid(burden, cty_level, ncol=2, align='hv')
+
+ggsave('C://Users/matt/lc-malnutrition-tex/StuntingBurden.png', width=8, height=3.5)
+
+
 
 plot_grid(spei_coef, increase, burden, cty_level,
           nrow=2, ncol=2, labels="AUTO", align='hv')
