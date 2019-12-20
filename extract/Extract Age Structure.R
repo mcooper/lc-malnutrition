@@ -30,6 +30,8 @@ comb <- merge(me, fe) %>%
          iso_a3=countrycode(Country.Name, 'country.name', 'iso3c')) %>%
   na.omit
 
+write.csv(comb, 'G://My Drive/DHS Processed/Under5Population.csv', row.names=F)
+
 cty <- ne_countries()
 cty@data$iso_a3[cty@data$sovereignt=='Somaliland'] <- 'SOM'
 
