@@ -4,87 +4,118 @@ library(tidyverse)
 library(rnaturalearth)
 library(patchwork)
 
-load('G://My Drive/lc-malnutrition/GAMs/AEZ_weights_GCV_natOnly.Rdata')
+load('~/mortalityblob/lc_gams/s2_noweights_te.Rdata')
 
-all <- read.csv('G://My Drive/DHS Processed/lc-malnutrition-weights2.csv')
+all <- read.csv('~/mortalityblob/dhs/lc-malnutrition-weights2.csv')
 
-nat <- raster('G://My Drive/DHS Spatial Covars/ESA Land Cover/natural_raster.tif')
-aez <- raster('G://My Drive/DHS Spatial Covars/AEZ/AEZ_DHS.tif') %>%
-  crop(extent(raster(nrows=1100, ncol=1400, xmn=-18, xmx=52, ymn=-35, ymx=20)))
+nat <- raster('~/gd/DHS Spatial Covars/ESA Land Cover/natural_raster.tif')
+prp <- raster('~/gd/DHS Spatial Covars/Final Rasters/2020/mean_annual_precip.tif')
 
-aez[aez==2] <- 1
-aez[aez==3] <- 1
-
+##################################################
+#Make a Map
+################################################
 #The more precision here, the longer it takes!
 nat <- round(nat, 2)
+prp <- crop(round(prp, -2), extent(nat))
 
-actual <- aez
-actual[!is.na(actual)] <- 0
+df <- stack(nat, prp) %>%
+  rasterToPoints %>%
+  data.frame %>%
+  select(natural=layer.1, mean_annual_precip=layer.2) %>%
+  unique %>%
+  na.omit
 
-cfactual <- aez
-cfactual[!is.na(cfactual)] <- 0
+df$age <- 1
+df$birth_order <- 1
+df$hhsize <- 10
+df$sex <- "Male"
+df$mother_years_ed <- 10
+df$toilet <- "Other"
+df$interview_year <- 2000
+df$calc_birthmonth <- 3
+df$head_age <- 40
+df$head_sex <- "Male"
+df$wealth_norm <- 0
+df$latitude <- 0
+df$longitude <- 0
+df$spei24 <- 1
 
-for (a_str in unique(mod$model$AEZ_new)){ #Get aez values
-  
-  #map aez factors to raster values
-  if (a_str == "afr.arid.123"){
-    a_num <- 1
-  }
-  if (a_str == "afr.forest.4"){
-    a_num <- 4
-  }
-  if (a_str == "nafr.sav.5"){
-    a_num <- 5
-  }
-  if (a_str == "seafr.sav.6"){
-    a_num <- 6
-  }
-  if (a_str == "afr.high.7"){
-    a_num <- 7
-  }
-  if (a_str == "nafr.subforest.8"){
-    a_num <- 8
-  }
-  if (a_str == "safr.subforest.9"){
-    a_num <- 9
-  }
-  
-  df <- unique(data.frame(natural=nat[aez==a_num]))
-  
-  df$AEZ_new <- a_str
-  df[ , as.character(unique(mod$model$AEZ_new))] <- 0
-  df[ , a_str] <- 1
-  df$age <- 1
-  df$birth_order <- 1
-  df$hhsize <- 10
-  df$sex <- "Male"
-  df$mother_years_ed <- 10
-  df$toilet <- "Other"
-  df$interview_year <- 2000
-  df$calc_birthmonth <- 3
-  df$head_age <- 40
-  df$head_sex <- "Male"
-  df$wealth_norm <- 0
-  df$latitude <- 0
-  df$longitude <- 0
-  
-  alt <- df
-  alt$natural <- 0
-  
-  p_actual <- predict(mod, df, type='terms', se=T)
-  p_cfactual <- predict(mod, alt, type='terms', se=T)
-  
-  print(a_str)
-  
-  pb <- txtProgressBar(min=1, max=nrow(df), style=3)
-  for (i in 1:nrow(df)){
-    actual[aez==a_num & nat==df$natural[i]] <- p_actual$fit[i , paste0('s(natural):', a_str)]
-    cfactual[aez==a_num & nat==df$natural[i]] <- p_cfactual$fit[i , paste0('s(natural):', a_str)]
+alt <- df
+alt$natural <- 0
 
-    setTxtProgressBar(pb, i)
-  }
-  close(pb)
+p_actual <- predict(mod, df, type='terms', se=T)
+p_cfactual <- predict(mod, alt, type='terms', se=T)
+
+actual <- nat
+cfactual <- nat
+actual[actual > -99] <- 0
+cfactual[cfactual > -99] <- 0
+
+pb <- txtProgressBar(min=1, max=nrow(df), style=3)
+for (i in 1:nrow(df)){
+  ix <- (nat==df$natural[i] & prp==df$mean_annual_precip[i])
+  actual[ix] <- p_actual$fit[i , paste0('te(mean_annual_precip,natural):spei24')]
+  cfactual[nat==df$natural[i]] <- p_cfactual$fit[i , paste0('te(mean_annual_precip,natural):spei24')]
+
+  setTxtProgressBar(pb, i)
 }
+close(pb)
+
+#######################################
+# Make a grid
+#######################################
+
+df <- expand.grid(list(natural=seq(0, 1, length.out=100),
+                       mean_annual_precip=seq(0, maxValue(prp), length.out=100)))
+
+df$age <- 1
+df$birth_order <- 1
+df$hhsize <- 10
+df$sex <- "Male"
+df$mother_years_ed <- 10
+df$toilet <- "Other"
+df$interview_year <- 2000
+df$calc_birthmonth <- 3
+df$head_age <- 40
+df$head_sex <- "Male"
+df$wealth_norm <- 0
+df$latitude <- 0
+df$longitude <- 0
+df$spei24 <- 1
+
+p_actual <- predict(mod, df, type='terms', se=T)
+
+df$coef <- p_actual$fit[ , 'te(mean_annual_precip,natural):spei24']
+
+ggplot(df) + 
+  geom_raster(aes(x=natural, y=mean_annual_precip, fill=coef)) +
+  scale_fill_manual(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #Only model counterfactual for subforest regions (where we saw a real effect)
 cfactual[!aez %in% c(8, 9)] <- actual[!aez %in% c(8, 9)] 

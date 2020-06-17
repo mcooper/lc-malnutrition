@@ -2,3 +2,4 @@ data/
 *.Rhistory
 *~$*.xlsx
 spatial-model/rasters/*
+*.swp
