@@ -11,6 +11,7 @@ all <- read.csv('~/mortalityblob/dhs/lc-malnutrition-weights2.csv')
 nat <- raster('~/gd/DHS Spatial Covars/ESA Land Cover/natural_raster.tif')
 prp <- raster('~/gd/DHS Spatial Covars/Final Rasters/2020/mean_annual_precip.tif')
 
+
 ##################################################
 #Make a Map
 ################################################
@@ -83,19 +84,50 @@ df$latitude <- 0
 df$longitude <- 0
 df$spei24 <- 1
 
-p_actual <- predict(mod, df, type='terms', se=T)
+p_actual <- predict(mod, df[1, ], type='terms', se=T)
 
 df$coef <- p_actual$fit[ , 'te(mean_annual_precip,natural):spei24']
 
 ggplot(df) + 
   geom_raster(aes(x=natural, y=mean_annual_precip, fill=coef)) +
-  scale_fill_manual(
+  scale_fill_gradientn(colours=c("#5e51a2", "#2f89be", "#66c3a6", "#add8a4", 
+                                   "#e4ea9a", "#fbf8c0", "#fce08a", "#faae61", 
+                                   "#f36c44", "#a01c44"))
 
 
+##Explore distribution of the 3 key variables
+library(plot3D)
+library(car)
+
+perc.rank <- function(x) trunc(rank(x))/length(x)
+
+s <- sample(1:nrow(all), 500)
+
+scatter3d(perc.rank(all$market_dist)[s],
+         perc.rank(all$natural)[s],
+         perc.rank(all$mean_annual_precip)[s],
+         surface=FALSE)
 
 
+md <- crop(raster('~/gd/DHS Spatial Covars/Final Rasters/2020/market_dist.tif'), extent(prp))
 
+new <- stack(md, nat, prp) %>%
+  rasterToPoints %>%
+  data.frame %>%
+  na.omit %>%
+  rename(nat=layer.1, prp=layer.2)
 
+new2 <- all %>%
+  mutate(nat=Hmisc::cut2(natural, g=10),
+         prp=Hmisc::cut2(mean_annual_precip, g=10),
+         md=Hmisc::cut2(market_dist, g=10)) %>%
+  group_by(nat, md) %>%
+  summarize(n=n())
+
+ggplot(new2) + geom_raster(aes(x=md, y=nat, fill=n)) +
+  scale_fill_gradientn(colours=c("#5e51a2", "#2f89be", "#66c3a6", "#add8a4", 
+                                   "#e4ea9a", "#fbf8c0", "#fce08a", "#faae61", 
+                                   "#f36c44", "#a01c44"))
 
 
 
