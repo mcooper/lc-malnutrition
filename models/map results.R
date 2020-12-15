@@ -4,150 +4,87 @@ library(tidyverse)
 library(rnaturalearth)
 library(patchwork)
 
-load('~/mortalityblob/lc_gams/s2_noweights_te.Rdata')
+load('~/gd/lc-malnutrition/GAMs/AEZ_weights_GCV_natOnly.Rdata')
 
 all <- read.csv('~/mortalityblob/dhs/lc-malnutrition-weights2.csv')
 
 nat <- raster('~/gd/DHS Spatial Covars/ESA Land Cover/natural_raster.tif')
-prp <- raster('~/gd/DHS Spatial Covars/Final Rasters/2020/mean_annual_precip.tif')
+aez <- raster('~/gd/DHS Spatial Covars/AEZ/AEZ_DHS.tif') %>%
+  crop(extent(raster(nrows=1100, ncol=1400, xmn=-18, xmx=52, ymn=-35, ymx=20)))
 
+aez[aez==2] <- 1
+aez[aez==3] <- 1
 
-##################################################
-#Make a Map
-################################################
 #The more precision here, the longer it takes!
 nat <- round(nat, 2)
-prp <- crop(round(prp, -2), extent(nat))
 
-df <- stack(nat, prp) %>%
-  rasterToPoints %>%
-  data.frame %>%
-  select(natural=layer.1, mean_annual_precip=layer.2) %>%
-  unique %>%
-  na.omit
+actual <- aez
+actual[!is.na(actual)] <- 0
 
-df$age <- 1
-df$birth_order <- 1
-df$hhsize <- 10
-df$sex <- "Male"
-df$mother_years_ed <- 10
-df$toilet <- "Other"
-df$interview_year <- 2000
-df$calc_birthmonth <- 3
-df$head_age <- 40
-df$head_sex <- "Male"
-df$wealth_norm <- 0
-df$latitude <- 0
-df$longitude <- 0
-df$spei24 <- 1
+cfactual <- aez
+cfactual[!is.na(cfactual)] <- 0
 
-alt <- df
-alt$natural <- 0
+for (a_str in unique(mod$model$AEZ_new)){ #Get aez values
+  
+  #map aez factors to raster values
+  if (a_str == "afr.arid.123"){
+    a_num <- 1
+  }
+  if (a_str == "afr.forest.4"){
+    a_num <- 4
+  }
+  if (a_str == "nafr.sav.5"){
+    a_num <- 5
+  }
+  if (a_str == "seafr.sav.6"){
+    a_num <- 6
+  }
+  if (a_str == "afr.high.7"){
+    a_num <- 7
+  }
+  if (a_str == "nafr.subforest.8"){
+    a_num <- 8
+  }
+  if (a_str == "safr.subforest.9"){
+    a_num <- 9
+  }
+  
+  df <- unique(data.frame(natural=nat[aez==a_num]))
+  
+  df$AEZ_new <- a_str
+  df[ , as.character(unique(mod$model$AEZ_new))] <- 0
+  df[ , a_str] <- 1
+  df$age <- 1
+  df$birth_order <- 1
+  df$hhsize <- 10
+  df$sex <- "Male"
+  df$mother_years_ed <- 10
+  df$toilet <- "Other"
+  df$interview_year <- 2000
+  df$calc_birthmonth <- 3
+  df$head_age <- 40
+  df$head_sex <- "Male"
+  df$wealth_norm <- 0
+  df$latitude <- 0
+  df$longitude <- 0
+  
+  alt <- df
+  alt$natural <- 0
+  
+  p_actual <- predict(mod, df, type='terms', se=T)
+  p_cfactual <- predict(mod, alt, type='terms', se=T)
+  
+  print(a_str)
+  
+  pb <- txtProgressBar(min=1, max=nrow(df), style=3)
+  for (i in 1:nrow(df)){
+    actual[aez==a_num & nat==df$natural[i]] <- p_actual$fit[i , paste0('s(natural):', a_str)]
+    cfactual[aez==a_num & nat==df$natural[i]] <- p_cfactual$fit[i , paste0('s(natural):', a_str)]
 
-p_actual <- predict(mod, df, type='terms', se=T)
-p_cfactual <- predict(mod, alt, type='terms', se=T)
-
-actual <- nat
-cfactual <- nat
-actual[actual > -99] <- 0
-cfactual[cfactual > -99] <- 0
-
-pb <- txtProgressBar(min=1, max=nrow(df), style=3)
-for (i in 1:nrow(df)){
-  ix <- (nat==df$natural[i] & prp==df$mean_annual_precip[i])
-  actual[ix] <- p_actual$fit[i , paste0('te(mean_annual_precip,natural):spei24')]
-  cfactual[nat==df$natural[i]] <- p_cfactual$fit[i , paste0('te(mean_annual_precip,natural):spei24')]
-
-  setTxtProgressBar(pb, i)
+    setTxtProgressBar(pb, i)
+  }
+  close(pb)
 }
-close(pb)
-
-#######################################
-# Make a grid
-#######################################
-
-df <- expand.grid(list(natural=seq(0, 1, length.out=100),
-                       mean_annual_precip=seq(0, maxValue(prp), length.out=100)))
-
-df$age <- 1
-df$birth_order <- 1
-df$hhsize <- 10
-df$sex <- "Male"
-df$mother_years_ed <- 10
-df$toilet <- "Other"
-df$interview_year <- 2000
-df$calc_birthmonth <- 3
-df$head_age <- 40
-df$head_sex <- "Male"
-df$wealth_norm <- 0
-df$latitude <- 0
-df$longitude <- 0
-df$spei24 <- 1
-
-p_actual <- predict(mod, df[1, ], type='terms', se=T)
-
-df$coef <- p_actual$fit[ , 'te(mean_annual_precip,natural):spei24']
-
-ggplot(df) + 
-  geom_raster(aes(x=natural, y=mean_annual_precip, fill=coef)) +
-  scale_fill_gradientn(colours=c("#5e51a2", "#2f89be", "#66c3a6", "#add8a4", 
-                                   "#e4ea9a", "#fbf8c0", "#fce08a", "#faae61", 
-                                   "#f36c44", "#a01c44"))
-
-
-##Explore distribution of the 3 key variables
-library(plot3D)
-library(car)
-
-perc.rank <- function(x) trunc(rank(x))/length(x)
-
-s <- sample(1:nrow(all), 500)
-
-scatter3d(perc.rank(all$market_dist)[s],
-         perc.rank(all$natural)[s],
-         perc.rank(all$mean_annual_precip)[s],
-         surface=FALSE)
-
-
-md <- crop(raster('~/gd/DHS Spatial Covars/Final Rasters/2020/market_dist.tif'), extent(prp))
-
-new <- stack(md, nat, prp) %>%
-  rasterToPoints %>%
-  data.frame %>%
-  na.omit %>%
-  rename(nat=layer.1, prp=layer.2)
-
-new2 <- all %>%
-  mutate(nat=Hmisc::cut2(natural, g=10),
-         prp=Hmisc::cut2(mean_annual_precip, g=10),
-         md=Hmisc::cut2(market_dist, g=10)) %>%
-  group_by(nat, md) %>%
-  summarize(n=n())
-
-ggplot(new2) + geom_raster(aes(x=md, y=nat, fill=n)) +
-  scale_fill_gradientn(colours=c("#5e51a2", "#2f89be", "#66c3a6", "#add8a4", 
-                                   "#e4ea9a", "#fbf8c0", "#fce08a", "#faae61", 
-                                   "#f36c44", "#a01c44"))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #Only model counterfactual for subforest regions (where we saw a real effect)
 cfactual[!aez %in% c(8, 9)] <- actual[!aez %in% c(8, 9)] 
@@ -161,7 +98,7 @@ cfactual[!aez %in% c(8, 9)] <- actual[!aez %in% c(8, 9)]
 sd_pred <- sd(all$haz_dhs)
 
 #Get inverse CDF
-proj2020 <- raster('G://My Drive/lc-malnutrition/stunting/proj2020.tif')
+proj2020 <- raster('~/gd/lc-malnutrition/stunting/proj2020.tif')
 proj2020_q <- calc(proj2020, function(x){qnorm(x)})
 
 #To estimate mean HAZ scores across africa in 2020 
@@ -181,7 +118,7 @@ p_drought_cf <- calc(m_drought_cf, function(x){pnorm(-2, x, sd_pred)})
 increase <- p_drought_cf - p_drought
 
 #Get count of excess stunted children
-u5pop <- raster('G://My Drive/lc-malnutrition/Age Structure/u5_pop.tif') %>%
+u5pop <- raster('~/gd/lc-malnutrition/Age Structure/u5_pop.tif') %>%
   crop(extent(nat))
 
 increased_burden <- u5pop*increase
@@ -189,13 +126,18 @@ increased_burden <- u5pop*increase
 nr_dependent <- u5pop
 nr_dependent[increase == 0 | is.na(increase)] <- 0
 
+#Write resulting rasters
+writeRaster(actual, '~/gd/lc-malnutrition/actual.tif', format='GTiff', overwrite=T)
+writeRaster(increase, '~/gd/lc-malnutrition/increase.tif', format='GTiff', overwrite=T)
+writeRaster(increased_burden, '~/gd/lc-malnutrition/increased_burden.tif', format='GTiff', overwrite=T)
+
 #Aggregate by country
 cty <- ne_countries()
 
 cty@data$increased_burden <- raster::extract(increased_burden, cty, fun=sum, na.rm=T)
 cty@data$nr_dependant <- raster::extract(nr_dependent, cty, fun=sum, na.rm=T)
 
-u5tab <- read.csv('G://My Drive/DHS Processed/Under5Population.csv')
+u5tab <- read.csv('~/gd/DHS Processed/Under5Population.csv')
 
 library(sf)
 library(stars)
@@ -250,6 +192,7 @@ wrap_plots(spei_coef, increase, burden, cty_level,
   plot_annotation(tag_levels = 'A')
 
 ggsave('C://Users/matt/lc-malnutrition-tex/AfricaEffect.png', height=6, width=8)
+
 
 
 
