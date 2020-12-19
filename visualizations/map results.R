@@ -122,6 +122,8 @@ u5pop <- raster('~/gd/lc-malnutrition/Age Structure/u5_pop.tif') %>%
   crop(extent(nat))
 
 increased_burden <- u5pop*increase
+a <- raster::area(increased_burden)
+increased_burden_perkm <- increased_burden/a
 
 nr_dependent <- u5pop
 nr_dependent[increase == 0 | is.na(increase)] <- 0
@@ -140,7 +142,6 @@ cty@data$nr_dependant <- raster::extract(nr_dependent, cty, fun=sum, na.rm=T)
 u5tab <- read.csv('~/gd/DHS Processed/Under5Population.csv')
 
 library(sf)
-library(stars)
 
 cty_sf <- st_as_sf(cty)
 
@@ -153,31 +154,22 @@ library(scales)
 
 options(spipen=1000)
 
-actual_stars <- st_as_stars(actual)
-increase_stars <- st_as_stars(increase)
-increased_burden_stars <- st_as_stars(increased_burden)
+aez <- raster('~/gd/DHS Spatial Covars/AEZ/AEZ_DHS.tif') %>%
+  crop(increased_burden)
 
-spei_coef <- ggplot() +
-  geom_stars(data=actual_stars) + 
-  scale_fill_gradient(low='#fff7bc', high='#d95f0e') + 
-  theme_void() + 
-  labs(fill="24 Monnth\nSPEI\nCoefficient")
+increased_burden_perkm[is.na(increased_burden_perkm) & !is.na(aez) ] <- 0
 
-increase <- ggplot() +
-  geom_stars(data=increase_stars) + 
-  scale_fill_gradient(low='#e7e1ef', high='#dd1c77') + 
-  theme_void() + 
-  labs(fill="Increase\nIn Stunting\nPrevalence\nWithout\nNature")
+increased_burden_perkm_dat <- data.frame(rasterToPoints(increased_burden_perkm)) %>%
+  mutate(layer = log(layer + 1))
+increased_burden_perkm_dat$layer[increased_burden_perkm_dat$layer == 0] <- NA
 
-burden <- ggplot() +
-  geom_stars(data=log(increased_burden_stars + 1)) + 
-  #geom_sf(data=cty_sf, color='#EEEEEE', alpha=0) + 
-  scale_fill_viridis(direction = 1, option='A', 
+(burden <- ggplot(increased_burden_perkm_dat) +
+  geom_raster(aes(x=x, y=y, fill=log(layer + 1))) + 
+  scale_fill_viridis(direction = -1, option='A', na.value='grey80',
                      label=function(x){round(exp(x) + 1, 0)}) + 
-  xlim(-18, 52) + 
-  ylim(-35, 20) + 
   theme_void() + 
-  labs(fill="Number\nPotental\nStunted\nChildren\nPer Pixel")
+  theme(legend.position = c(0.2, 0.2)) + 
+  labs(fill="Number\nPotental\nStunted\nChildren\nPer Sq. Km."))
 
 (cty_level <- ggplot(cty_sf) + 
   geom_sf(aes(fill=nr_dependant/(pop_est*u5*0.01))) + 
