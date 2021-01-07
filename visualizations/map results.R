@@ -4,7 +4,7 @@ library(tidyverse)
 library(rnaturalearth)
 library(patchwork)
 
-load('~/gd/lc-malnutrition/GAMs/AEZ_weights_GCV_natOnly.Rdata')
+load('~/mortalityblob/lc_gams/AEZ_weights_GCV_natOnly.Rdata')
 
 all <- read.csv('~/mortalityblob/dhs/lc-malnutrition-weights2.csv')
 
@@ -125,19 +125,18 @@ increased_burden <- u5pop*increase
 a <- raster::area(increased_burden)
 increased_burden_perkm <- increased_burden/a
 
-nr_dependent <- u5pop
-nr_dependent[increase == 0 | is.na(increase)] <- 0
-
 #Write resulting rasters
 writeRaster(actual, '~/gd/lc-malnutrition/actual.tif', format='GTiff', overwrite=T)
 writeRaster(increase, '~/gd/lc-malnutrition/increase.tif', format='GTiff', overwrite=T)
 writeRaster(increased_burden, '~/gd/lc-malnutrition/increased_burden.tif', format='GTiff', overwrite=T)
 
+#Get Per-Km
+a <- raster::area(increased_burden)
+sqkm <- increased_burden/a
+
 #Aggregate by country
 cty <- ne_countries()
-
 cty@data$increased_burden <- raster::extract(increased_burden, cty, fun=sum, na.rm=T)
-cty@data$nr_dependant <- raster::extract(nr_dependent, cty, fun=sum, na.rm=T)
 
 u5tab <- read.csv('~/gd/DHS Processed/Under5Population.csv')
 
@@ -157,13 +156,13 @@ options(spipen=1000)
 aez <- raster('~/gd/DHS Spatial Covars/AEZ/AEZ_DHS.tif') %>%
   crop(increased_burden)
 
-increased_burden_perkm[is.na(increased_burden_perkm) & !is.na(aez) ] <- 0
+sqkm[is.na(sqkm) & !is.na(aez) ] <- 0
 
-increased_burden_perkm_dat <- data.frame(rasterToPoints(increased_burden_perkm)) %>%
+sqkm_dat <- data.frame(rasterToPoints(sqkm)) %>%
   mutate(layer = log(layer + 1))
-increased_burden_perkm_dat$layer[increased_burden_perkm_dat$layer == 0] <- NA
+sqkm_dat$layer[sqkm_dat$layer == 0] <- NA
 
-(burden <- ggplot(increased_burden_perkm_dat) +
+(burden <- ggplot(sqkm_dat) +
   geom_raster(aes(x=x, y=y, fill=log(layer + 1))) + 
   scale_fill_viridis(direction = -1, option='A', na.value='grey80',
                      label=function(x){round(exp(x) + 1, 0)}) + 
@@ -179,8 +178,8 @@ increased_burden_perkm_dat$layer[increased_burden_perkm_dat$layer == 0] <- NA
   theme_void() + 
   labs(fill="Fraction\nof Children\nDependent\non Nature"))
 
-wrap_plots(spei_coef, increase, burden, cty_level,
-           widths=c(1, 1), heights=c(1, 1)) + 
+wrap_plots(burden, cty_level,
+           widths=c(1, 1)) + 
   plot_annotation(tag_levels = 'A')
 
 ggsave('C://Users/matt/lc-malnutrition-tex/AfricaEffect.png', height=6, width=8)
