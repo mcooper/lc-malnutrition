@@ -107,11 +107,11 @@ leg_dat <- comb %>%
   geom_tile(data = leg_dat, aes(x=hun_q, y=bio_q, fill=color), color='#000000',
             show.legend=FALSE) +
   scale_fill_manual(values = palette) +
-  labs(x = sprintf("More Biodiversity Priority \u2192"),
-       y = sprintf("More Food Security Priority \u2192")) +
+  labs(x = sprintf("More Food Security Priority \u2192"),
+       y = sprintf("More Biodiversity Priority \u2192")) +
   theme(legend.position="bottom",
         legend.key = element_blank(),
-        axis.title = element_text(size = 10),
+        axis.title = element_text(size = 14),
         legend.title = element_text(size = 10),
         plot.background = element_rect(fill='transparent',
                                        color='transparent')) + 
@@ -121,7 +121,7 @@ leg_dat <- comb %>%
 
 ggdraw() +
   draw_plot(map, 0, 0, 1, 1) +
-  draw_plot(leg, 0.05, 0.15, 0.25, 0.35)
+  draw_plot(leg, 0.0175, 0.1175, 0.35, 0.45)
 
 ggsave('~/lc-malnutrition-tex/Bivariate_Map.png', width=8, height=8)
 

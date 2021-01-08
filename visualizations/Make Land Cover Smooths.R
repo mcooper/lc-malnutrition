@@ -60,7 +60,8 @@ ggplot(pltdat) +
   geom_line(aes(x=natural, y=fit)) + 
   geom_hline(aes(yintercept=0), linetype=3) + 
   facet_wrap(. ~ Map, ncol=4) + 
-  scale_x_continuous(expand=c(0,0)) + 
+  scale_x_continuous(expand=c(0,0), breaks=c(25, 50, 75, 100), labels=function(x){paste0(x, '%')}) + 
+  scale_y_continuous(sec.axis=dup_axis(name=sprintf('\u2190 More Drought Vulnerable'))) + 
   scale_fill_manual(values = c('Arid'=rgb2(255, 225, 175),
                                'Tropical Forest'=rgb2(50, 125, 0),
                                'Northern Savanna'=rgb2(179, 210, 52),
@@ -76,7 +77,7 @@ ggplot(pltdat) +
 ggsave('~/lc-malnutrition-tex/AEZ_effects.png', height = 3.5, width = 7)
 
 texreg(mod, file = '~/lc-malnutrition-tex/Mod_Table.tex', longtable=TRUE, custom.model.names="", 
-       center=FALSE, use.packages=FALSE, caption='Parameter estimates for Generalized Additive Model estimating the varying coefficient of SPEI, with CBGPS weights censored at the 90th percentile.')
+       center=FALSE, use.packages=FALSE, caption='Parameter estimates for Generalized Additive Model estimating the varying coefficient of SPEI.')
 
 
 #####################################
@@ -135,7 +136,8 @@ ggplot(pltdat) +
   geom_line(aes(x=natural, y=fit)) + 
   geom_hline(aes(yintercept=0), linetype=3) + 
   facet_wrap(. ~ Map, ncol=4) + 
-  scale_x_continuous(expand=c(0,0)) + 
+  scale_x_continuous(expand=c(0,0), breaks=c(25, 50, 75, 100), labels=function(x){paste0(x, '%')}) + 
+  scale_y_continuous(sec.axis=dup_axis(name=sprintf('\u2190 More Drought Vulnerable'))) + 
   scale_fill_manual(values = c('Arid'=rgb2(255, 225, 175),
                                'Tropical Forest'=rgb2(50, 125, 0),
                                'Northern Savanna'=rgb2(179, 210, 52),
@@ -151,7 +153,7 @@ ggplot(pltdat) +
 ggsave('~/lc-malnutrition-tex/AEZ_effects_q90.png', height = 3.5, width = 7)
 
 texreg(mod, file = '~/lc-malnutrition-tex/Mod_Table_q90.tex', longtable=TRUE, custom.model.names="", 
-       center=FALSE, use.packages=FALSE, caption='Parameter estimates for Generalized Additive Model estimating the varying coefficient of SPEI')
+       center=FALSE, use.packages=FALSE, caption='Parameter estimates for Generalized Additive Model estimating the varying coefficient of SPEI, with CBGPS weights censored at the 90th percentile.')
 
 
 
@@ -211,7 +213,8 @@ ggplot(pltdat) +
   geom_line(aes(x=natural, y=fit)) + 
   geom_hline(aes(yintercept=0), linetype=3) + 
   facet_wrap(. ~ Map, ncol=4) + 
-  scale_x_continuous(expand=c(0,0)) + 
+  scale_x_continuous(expand=c(0,0), breaks=c(25, 50, 75, 100), labels=function(x){paste0(x, '%')}) + 
+  scale_y_continuous(sec.axis=dup_axis(name=sprintf('\u2190 More Drought Vulnerable'))) + 
   scale_fill_manual(values = c('Arid'=rgb2(255, 225, 175),
                                'Tropical Forest'=rgb2(50, 125, 0),
                                'Northern Savanna'=rgb2(179, 210, 52),

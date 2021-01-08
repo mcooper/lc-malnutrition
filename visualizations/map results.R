@@ -2,7 +2,12 @@ library(mgcv)
 library(raster)
 library(tidyverse)
 library(rnaturalearth)
-library(patchwork)
+library(sf)
+library(viridis)
+library(RColorBrewer)
+library(cowplot)
+library(scales)
+
 
 load('~/mortalityblob/lc_gams/AEZ_weights_GCV_natOnly.Rdata')
 
@@ -140,18 +145,8 @@ cty@data$increased_burden <- raster::extract(increased_burden, cty, fun=sum, na.
 
 u5tab <- read.csv('~/gd/DHS Processed/Under5Population.csv')
 
-library(sf)
-
 cty_sf <- st_as_sf(cty)
-
 cty_sf <- merge(cty_sf, u5tab)
-
-library(viridis)
-library(RColorBrewer)
-library(cowplot)
-library(scales)
-
-options(spipen=1000)
 
 aez <- raster('~/gd/DHS Spatial Covars/AEZ/AEZ_DHS.tif') %>%
   crop(increased_burden)
@@ -165,24 +160,27 @@ sqkm_dat$layer[sqkm_dat$layer == 0] <- NA
 (burden <- ggplot(sqkm_dat) +
   geom_raster(aes(x=x, y=y, fill=log(layer + 1))) + 
   scale_fill_viridis(direction = -1, option='A', na.value='grey80',
-                     label=function(x){round(exp(x) + 1, 0)}) + 
+                     label=function(x){round(exp(x) - 1, 3)},
+                     limits=c(0, 1.5),
+                     breaks=c(0, log(2), log(3), log(4))) + 
   theme_void() + 
-  theme(legend.position = c(0.2, 0.2)) + 
-  labs(fill="Number\nPotental\nStunted\nChildren\nPer Sq. Km."))
+  theme(legend.position = c(0.2, 0.4)) + 
+  labs(fill="Number of\nPotentally\nStunted\nChildren\nPer Sq. Km.") + 
+  coord_fixed())
 
-(cty_level <- ggplot(cty_sf) + 
-  geom_sf(aes(fill=nr_dependant/(pop_est*u5*0.01))) + 
-  scale_fill_gradient(low="#ece7f2", high="#2b8cbe") + 
-  xlim(-18, 52) + 
-  ylim(-35, 20) + 
+cty_sf <- st_crop(cty_sf, xmin=-17.525, xmax=51.975, ymin=-34.925, ymax=19.875)
+
+options(scipen=1000)
+cty_level <- ggplot(cty_sf) + 
+  geom_sf(aes(fill=increased_burden)) + 
+  scale_fill_gradient(low="#ece7f2", high="#2b8cbe", labels = function(x) format(x, big.mark=',')) + 
   theme_void() + 
-  labs(fill="Fraction\nof Children\nDependent\non Nature"))
+  theme(legend.position = c(0.2, 0.4)) + 
+  labs(fill="Number of\nPotentially\nStunted\nChildren\nPer Country")
 
-wrap_plots(burden, cty_level,
-           widths=c(1, 1)) + 
-  plot_annotation(tag_levels = 'A')
+plot_grid(burden, cty_level, align='v', axis='tblr', labels='AUTO')
 
-ggsave('C://Users/matt/lc-malnutrition-tex/AfricaEffect.png', height=6, width=8)
+ggsave('~/lc-malnutrition-tex/AfricaEffect.png', height=4, width=10)
 
 
 
