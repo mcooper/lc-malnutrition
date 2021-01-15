@@ -11,6 +11,7 @@ biodiv <- raster('~/gd/DHS Spatial Covars/Conservation Priorities/AT_Plants_Vert
   resample(hunger)
 aez <- raster('~/gd/DHS Spatial Covars/AEZ/AEZ_DHS.tif') %>%
   crop(hunger)
+
 aez[is.na(aez)] <- 99
 
 hun_pts <- rasterToPoints(hunger) %>%
@@ -43,7 +44,6 @@ comb$color <- mapply(FUN=function(x, y){pal_ix[x, y]},
 
 #Make Bivariate Palette
 palette <- brewer.seqseq2()
-#palette[1] <- "#f7fcb9"
 
 #       bio-hi bio-mid bio-low
 #hun-hi   1       4       7
@@ -54,10 +54,13 @@ palette <- brewer.seqseq2()
 # p <- c('#edf8fb','#b3cde3','#8c96c6','#8856a7','#810f7c')
 # palette <- c(p[1], p[2], p[3], p[2], p[3], p[4], p[3], p[4], p[5])
 
+palette[5] <- "#a3a3a3"
+
 names(palette) <- c(9, 6, 3, 8, 5, 2, 7, 4, 1)
 
 
 #Make Colors for other parts of Africa and Ocean
+comb$color[comb$color == 9] <- 10
 comb$color[!comb$AEZ_DHS %in% c(8, 9)] <- 10
 comb$color[comb$AEZ_DHS == 99] <- 11
 palette <- c(palette, "#d9d9d9", "#FFFFFF")
@@ -82,11 +85,11 @@ cty <- ne_countries(scale=50) %>%
   st_as_sf
 
 (map <- ggplot() + 
-  geom_raster(data=shade, aes(x=x, y=y, alpha=MSR_50M), color='grey20', 
+  geom_raster(data=shade, aes(x=x, y=y, alpha=MSR_50M), fill='grey40', 
               show.legend=F) + 
   geom_raster(data=comb, aes(x=x, y=y, fill=color), alpha=0.8) +
   scale_fill_manual(values = palette, na.value='#FFFFFF') + 
-  geom_sf(data=cty, color='black', fill=NA) + 
+  geom_sf(data=cty, color='grey20', fill=NA, size=0.5) + 
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank(),
