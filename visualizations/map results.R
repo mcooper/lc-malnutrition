@@ -139,8 +139,17 @@ writeRaster(increased_burden, '~/gd/lc-malnutrition/increased_burden.tif', forma
 a <- raster::area(increased_burden)
 sqkm <- increased_burden/a
 
+sqkm[is.na(sqkm) & !is.na(aez) ] <- 0
+
+sqkm_dat <- data.frame(rasterToPoints(sqkm)) %>%
+  mutate(layer = log(layer + 1))
+sqkm_dat$layer[sqkm_dat$layer == 0] <- NA
+
+
 #Aggregate by country
 cty <- ne_countries()
+cty$iso_a3[cty$admin == 'Somaliland'] <- 'SOM'
+increased_burden[!aez %in% c(8, 9)] <- NA
 cty@data$increased_burden <- raster::extract(increased_burden, cty, fun=sum, na.rm=T)
 
 u5tab <- read.csv('~/gd/DHS Processed/Under5Population.csv')
@@ -148,35 +157,30 @@ u5tab <- read.csv('~/gd/DHS Processed/Under5Population.csv')
 cty_sf <- st_as_sf(cty)
 cty_sf <- merge(cty_sf, u5tab)
 
-aez <- raster('~/gd/DHS Spatial Covars/AEZ/AEZ_DHS.tif') %>%
-  crop(increased_burden)
-
-sqkm[is.na(sqkm) & !is.na(aez) ] <- 0
-
-sqkm_dat <- data.frame(rasterToPoints(sqkm)) %>%
-  mutate(layer = log(layer + 1))
-sqkm_dat$layer[sqkm_dat$layer == 0] <- NA
+cty_sf <- st_crop(cty_sf, xmin=-17.525, xmax=51.975, ymin=-34.925, ymax=19.875)
 
 (burden <- ggplot(sqkm_dat) +
   geom_raster(aes(x=x, y=y, fill=log(layer + 1))) + 
+  geom_sf(data=cty_sf, fill=NA, color='grey20') + 
   scale_fill_viridis(direction = -1, option='A', na.value='grey80',
                      label=function(x){round(exp(x) - 1, 3)},
                      limits=c(0, 1.5),
                      breaks=c(0, log(2), log(3), log(4))) + 
   theme_void() + 
   theme(legend.position = c(0.2, 0.4)) + 
-  labs(fill="Number of\nPotentally\nStunted\nChildren\nPer Sq. Km.") + 
-  coord_fixed())
-
-cty_sf <- st_crop(cty_sf, xmin=-17.525, xmax=51.975, ymin=-34.925, ymax=19.875)
+  labs(fill="Number of\nPotentally\nStunted\nChildren\nPer Sq. Km."))
 
 options(scipen=1000)
-cty_level <- ggplot(cty_sf) + 
+cty_sf <- cty_sf %>%
+  mutate(increased_burden=ifelse(increased_burden != 0, increased_burden, NA))
+
+(cty_level <- ggplot(cty_sf) + 
   geom_sf(aes(fill=increased_burden)) + 
-  scale_fill_gradient(low="#ece7f2", high="#2b8cbe", labels = function(x) format(x, big.mark=',')) + 
+  geom_sf(data = cty_sf %>% filter(is.na(increased_burden)), show.legend='polygon') + 
+  scale_fill_gradient(low="#b2e2e2", high="#003300", labels = function(x) format(x, big.mark=',')) + 
   theme_void() + 
   theme(legend.position = c(0.2, 0.4)) + 
-  labs(fill="Number of\nPotentially\nStunted\nChildren\nPer Country")
+  labs(fill="Number of\nPotentially\nStunted\nChildren\nPer Country"))
 
 plot_grid(burden, cty_level, align='v', axis='tblr', labels='AUTO')
 

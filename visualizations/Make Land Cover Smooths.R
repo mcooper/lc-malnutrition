@@ -1,8 +1,42 @@
 setwd('~/mortalityblob/lc_gams/')
 
+library(raster)
 library(mgcv)
 library(tidyverse)
 library(texreg)
+library(cowplot)
+
+#Make map of Africa with Colors
+r <- raster('~/gd/DHS Spatial Covars/AEZ/AEZ_DHS.tif') %>%
+  crop(extent(-18, 51.5, -35, 25))
+
+#Mideast and North Africa to 0
+r[r==12] <- 0
+r[r==2] <- 1
+r[r==3] <- 1
+
+aezbackground <- r %>%
+  rasterToPoints %>%
+  data.frame %>%
+  mutate(AEZ_DHS = ifelse(AEZ_DHS == 0, NA, AEZ_DHS),
+         AEZ_DHS = factor(AEZ_DHS, labels=c('Arid', 'Tropical Forest', 'Northern Savanna', 
+                                            'Southern Savanna', 'Montane', 'Northern Woodland',
+                                            'Southern Woodland')))
+aez <- aezbackground %>%
+  filter(!is.na(AEZ_DHS))
+
+leg <- ggplot() + 
+  geom_raster(data=aezbackground, aes(x=x, y=y), fill='grey90') + 
+  geom_raster(data=aez, aes(x=x, y=y, fill=factor(AEZ_DHS))) + 
+  scale_fill_manual(values = c('Arid'=rgb2(255, 225, 175), 
+                               'Tropical Forest'=rgb2(50, 125, 0), 
+                               'Northern Savanna'=rgb2(179, 210, 52),
+                               'Southern Savanna'=rgb2(222, 231, 135), 
+                               'Montane'=rgb2(200,143,200), 
+                               'Northern Woodland'=rgb2(110, 175, 75),
+                               'Southern Woodland'=rgb2(55, 145, 130))) + 
+  theme_void() + 
+  theme(legend.position='none')
 
 ##################################
 # Main Model
@@ -55,7 +89,7 @@ pltdat$Map <- factor(pltdat$Map, levels=c('Tropical Forest', 'Northern Woodland'
                                           'Montane', 'Southern Woodland',
                                           'Southern Savanna'))
 
-ggplot(pltdat) + 
+map <- ggplot(pltdat) + 
   geom_ribbon(aes(x=natural, ymin=min, ymax=max, fill=Map)) + 
   geom_line(aes(x=natural, y=fit)) + 
   geom_hline(aes(yintercept=0), linetype=3) + 
@@ -71,8 +105,13 @@ ggplot(pltdat) +
                                'Southern Woodland'=rgb2(55, 145, 130))) +
   theme_bw() + 
   labs(y='Coefficient for 24-Month SPEI',
-       x='Percent of Nearby Landcover Uncultivated') + 
+       x='Percent of Nearby Land Uncultivated') + 
   theme(legend.position = 'none')
+
+#Keep it simple, stupid
+# ggdraw() +
+  # draw_plot(map, 0, 0, 1, 1) +
+  # draw_plot(leg, 0.75, 0.01, 0.2, 0.4)
 
 ggsave('~/lc-malnutrition-tex/AEZ_effects.png', height = 3.5, width = 7)
 
@@ -147,7 +186,7 @@ ggplot(pltdat) +
                                'Southern Woodland'=rgb2(55, 145, 130))) +
   theme_bw() + 
   labs(y='Coefficient for 24-Month SPEI',
-       x='Percent of Nearby Landcover Uncultivated') + 
+       x='Percent of Nearby Land Uncultivated') + 
   theme(legend.position = 'none')
 
 ggsave('~/lc-malnutrition-tex/AEZ_effects_q90.png', height = 3.5, width = 7)
@@ -224,7 +263,7 @@ ggplot(pltdat) +
                                'Southern Woodland'=rgb2(55, 145, 130))) +
   theme_bw() + 
   labs(y='Coefficient for 24-Month SPEI',
-       x='Percent of Nearby Landcover Uncultivated') + 
+       x='Percent of Nearby Land Uncultivated') + 
   theme(legend.position = 'none')
 
 ggsave('~/lc-malnutrition-tex/AEZ_effects_q80.png', height = 3.5, width = 7)
