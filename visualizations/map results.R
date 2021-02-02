@@ -104,7 +104,7 @@ sd_pred <- sd(all$haz_dhs)
 
 #Get inverse CDF
 proj2020 <- raster('~/gd/lc-malnutrition/stunting/proj2020.tif')
-proj2020_q <- calc(proj2020, function(x){qnorm(x)})
+proj2020_q <- calc(proj2020, function(x){qnorm(x, 0, sd_pred)})
 
 #To estimate mean HAZ scores across africa in 2020 
 m <- -sd_pred*proj2020_q - 2
@@ -185,8 +185,4 @@ cty_sf <- cty_sf %>%
 plot_grid(burden, cty_level, align='v', axis='tblr', labels='AUTO')
 
 ggsave('~/lc-malnutrition-tex/AfricaEffect.png', height=4, width=10)
-
-
-
-
 

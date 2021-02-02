@@ -128,6 +128,61 @@ ggdraw() +
 
 ggsave('~/lc-malnutrition-tex/Bivariate_Map.png', width=8, height=8)
 
+########################
+# Add WDPA
+######################
+
+wdpa <- list.files('~/gd/Data/WDPA/', recursive=T, pattern='polygons.shp$', full.names=T) %>%
+  lapply(FUN=function(f){read_sf(dsn=paste0(dirname(f), '/'), layer=gsub('.shp$', '', basename(f)))}) %>%
+  bind_rows %>%
+  st_crop(hunger) %>%
+  filter(MARINE == 0)
+
+(map <- ggplot() + 
+  geom_raster(data=shade, aes(x=x, y=y, alpha=MSR_50M), fill='grey40', 
+              show.legend=F) + 
+  geom_raster(data=comb, aes(x=x, y=y, fill=color), alpha=0.8) +
+  scale_fill_manual(values = palette, na.value='#FFFFFF') + 
+  geom_sf(data=wdpa, color='grey20', fill=NA, size=0.5) + 
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()) + 
+  guides(fill=FALSE) + 
+  theme_void()+
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)))
+
+ggdraw() +
+  draw_plot(map, 0, 0, 1, 1) +
+  draw_plot(leg, 0.0175, 0.1175, 0.35, 0.45)
+
+ggsave('~/lc-malnutrition-tex/Bivariate_Map_WDPA.png', width=8, height=8)
+
+#Of all high-priority areas, what % are in PAs?
+high_priority <- comb %>%
+  filter(hun_q == 'hi') %>%
+  st_as_sf(coords=c('x', 'y'), crs=st_crs(wdpa))
+
+high_priority$in_pa <- st_intersects(high_priority, wdpa, sparse=F) %>%
+  apply(MARGIN=1, FUN=any)
+
+mean(high_priority$in_pa)
+> 0.0297
+
+#Of all high-priotiy areas in PAs, what type are they in?
+o <- st_join(high_priority, wdpa)
+
+m <- table(o$IUCN_CAT, useNA='always')
+
+
+
+
+
+
+
 
 
 
